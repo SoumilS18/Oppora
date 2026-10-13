@@ -269,13 +269,13 @@ export default function OnboardingPage() {
                   </div>
                 </div>
 
-                {/* State / Union Territory (Crucial for Indian State Missions) */}
+                {/* State / Union Territory */}
                 <div>
                   <label
                     htmlFor="state"
                     style={{ display: "block", fontSize: "0.84rem", fontWeight: 600, marginBottom: "0.35rem", color: "var(--text-ink)" }}
                   >
-                    State / Region Jurisdiction
+                    State / Union Territory
                   </label>
                   {profile.country.toLowerCase().includes("india") ? (
                     <select
@@ -291,17 +291,23 @@ export default function OnboardingPage() {
                         color: "var(--text-ink)",
                       }}
                     >
-                      <option value="Karnataka">Karnataka (ELEVATE &amp; Bengaluru Ecosystem)</option>
-                      <option value="Maharashtra">Maharashtra (Mumbai / Pune TBI)</option>
-                      <option value="Delhi NCR">Delhi NCR (IIT Delhi &amp; MeitY Hub)</option>
-                      <option value="Tamil Nadu">Tamil Nadu (IIT Madras &amp; TANSIM)</option>
-                      <option value="Telangana">Telangana (T-Hub / IIIT Hyderabad)</option>
-                      <option value="Gujarat">Gujarat (iCreate &amp; GSFC)</option>
-                      <option value="Kerala">Kerala (Kerala Startup Mission - KSUM)</option>
-                      <option value="Uttar Pradesh">Uttar Pradesh (IIT Kanpur / S&amp;T)</option>
-                      <option value="West Bengal">West Bengal (Kolkata / Eastern Hub)</option>
+                      <option value="Karnataka">Karnataka</option>
+                      <option value="Maharashtra">Maharashtra</option>
+                      <option value="Delhi NCR">Delhi NCR</option>
+                      <option value="Tamil Nadu">Tamil Nadu</option>
+                      <option value="Telangana">Telangana</option>
+                      <option value="Gujarat">Gujarat</option>
+                      <option value="Kerala">Kerala</option>
+                      <option value="Uttar Pradesh">Uttar Pradesh</option>
+                      <option value="West Bengal">West Bengal</option>
                       <option value="Andhra Pradesh">Andhra Pradesh</option>
-                      <option value="Rajasthan">Rajasthan (iStart)</option>
+                      <option value="Rajasthan">Rajasthan</option>
+                      <option value="Haryana">Haryana</option>
+                      <option value="Punjab">Punjab</option>
+                      <option value="Madhya Pradesh">Madhya Pradesh</option>
+                      <option value="Odisha">Odisha</option>
+                      <option value="Goa">Goa</option>
+                      <option value="Assam & North East">Assam & North East</option>
                       <option value="Other State / UT">Other Indian State / Union Territory</option>
                     </select>
                   ) : (
@@ -322,7 +328,7 @@ export default function OnboardingPage() {
                     />
                   )}
                   <span style={{ fontSize: "0.76rem", color: "var(--text-faint)", marginTop: "0.25rem", display: "block" }}>
-                    Enables matching with state startup missions (e.g. Karnataka ELEVATE) and regional university incubators.
+                    Used to match state startup missions and regional incubators.
                   </span>
                 </div>
 
@@ -366,7 +372,7 @@ export default function OnboardingPage() {
                     type="text"
                     value={profile.industry}
                     onChange={(e) => setProfile({ ...profile, industry: e.target.value })}
-                    placeholder="e.g. HealthTech & AI, MedTech, DeepTech & Hardware, AgriTech"
+                    placeholder="e.g. HealthTech & AI, FinTech, EdTech, DeepTech, AgriTech"
                     required
                     style={{
                       width: "100%",
@@ -378,7 +384,19 @@ export default function OnboardingPage() {
                     }}
                   />
                   <div style={{ display: "flex", gap: "0.35rem", marginTop: "0.35rem", flexWrap: "wrap" }}>
-                    {["HealthTech & AI", "DeepTech", "MedTech & Devices", "AgriTech", "CleanTech & Sustainability", "B2B SaaS"].map((ind) => (
+                    {[
+                      "HealthTech & AI",
+                      "FinTech",
+                      "EdTech",
+                      "DeepTech",
+                      "MedTech & Devices",
+                      "AgriTech",
+                      "CleanTech & Sustainability",
+                      "B2B SaaS",
+                      "BioTech",
+                      "AI & ML",
+                      "Consumer & D2C",
+                    ].map((ind) => (
                       <button
                         key={ind}
                         type="button"
@@ -424,11 +442,11 @@ export default function OnboardingPage() {
                       color: "var(--text-ink)",
                     }}
                   >
-                    <option value="Idea">Idea (Concept / Literature Review / EiR)</option>
-                    <option value="Prototype">Prototype (Working Lab Prototype / TRL 3&ndash;5)</option>
-                    <option value="MVP">MVP (Alpha Pilot / Clinical Trials / Beta User Testing)</option>
-                    <option value="Early Revenue">Early Revenue (Commercial Traction / Market Entry)</option>
-                    <option value="Scaling">Scaling (Series A / Production Deployment)</option>
+                    <option value="Idea">Idea</option>
+                    <option value="Prototype">Prototype (TRL 3&ndash;5)</option>
+                    <option value="MVP">MVP (Alpha / Beta Testing)</option>
+                    <option value="Early Revenue">Early Revenue (Commercial Traction)</option>
+                    <option value="Scaling">Scaling (Growth / Series A+)</option>
                   </select>
                 </div>
 
