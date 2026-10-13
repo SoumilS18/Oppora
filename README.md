@@ -1,139 +1,159 @@
-# Oppora
 # Oppora 🚀
 ### Better Opportunities. Smarter Moves.
+**AI-Powered Startup Opportunity Intelligence Platform for AZINHACK ’26**
 
-**Oppora** is an AI-powered opportunity intelligence platform that helps startup founders discover relevant grants, incubators, accelerators, startup competitions, and funding opportunities from across the web.
-
-Instead of manually searching dozens of websites, founders can use Oppora to discover opportunities, evaluate eligibility, compare requirements, and identify the next steps for applying.
-
-Built for **AZINHACK ’26**, Oppora combines live web intelligence powered by **TinyFish** with AI-driven analysis to turn scattered information into actionable opportunities.
-
-## 💡 The Problem
-
-Startup founders often struggle to discover the right opportunities because:
-
-- Funding programs, grants, and incubators are scattered across multiple websites.
-- Eligibility criteria and application requirements can be difficult to interpret.
-- Application deadlines are easy to miss.
-- Manually researching and comparing opportunities consumes valuable time.
-- Founders may spend time applying to programs for which they are not eligible.
-
-## ✨ Our Solution
-
-Oppora simplifies opportunity discovery through a unified, AI-powered workflow.
-
-Users provide information about their startup, including its industry, stage, location, and requirements. Oppora searches relevant sources, extracts opportunity details, and analyzes how well each opportunity matches the user's profile.
-
-### Key Features
-
-- **🔎 Smart Opportunity Discovery**  
-  Find relevant startup grants, incubators, accelerators, competitions, and funding programs.
-
-- **🌐 Live Web Intelligence**  
-  Use TinyFish to search websites and retrieve relevant information from accessible web pages.
-
-- **🎯 AI-Powered Eligibility Matching**  
-  Compare opportunity requirements with a startup's profile and explain potential matches, mismatches, and missing information.
-
-- **📅 Deadline Tracking**  
-  Highlight published application deadlines and help founders prioritize upcoming opportunities.
-
-- **📋 Application Readiness**  
-  Extract required documents, eligibility conditions, and application steps into an organized checklist.
-
-- **📊 Opportunity Comparison**  
-  Compare funding details, program benefits, eligibility requirements, and deadlines where reliable information is available.
-
-- **🔗 Source Transparency**  
-  Provide links to original sources so users can verify important information before making decisions.
-
-## ⚙️ How It Works
-
-1. **Create a startup profile:** Enter details such as industry, development stage, location, and business objectives.
-2. **Discover opportunities:** Oppora uses TinyFish to search for relevant programs and retrieve information from accessible websites.
-3. **Extract structured information:** Collect published eligibility criteria, deadlines, benefits, and application requirements.
-4. **Analyze and match:** AI compares the retrieved information with the startup profile.
-5. **Prioritize opportunities:** Present relevant opportunities with explanations and supporting source links.
-6. **Plan the next steps:** Generate an application checklist to help founders prepare.
-
-## 🧠 Technology Stack
-
-The final technology stack will depend on implementation decisions.
-
-- **Frontend:** To be finalized
-- **Backend:** To be finalized
-- **Web Intelligence:** TinyFish Search API, Fetch API, and/or Web Agent
-- **AI Analysis:** An LLM for structured extraction, matching, and explanation
-- **Database:** To be finalized, if persistent storage is required
-- **Deployment:** To be finalized
-
-## 🔌 How TinyFish Powers Oppora
-
-TinyFish is a core part of Oppora's opportunity discovery workflow.
-
-- **Search API:** Discover relevant opportunities across the live web.
-- **Fetch API:** Retrieve useful content from opportunity pages and supported sources.
-- **Web Agent:** Navigate supported websites and perform multi-step searches where necessary.
-
-The retrieved information is then processed by Oppora's analysis layer to generate structured opportunity profiles and personalized recommendations.
-
-TinyFish handles web discovery and retrieval; Oppora focuses on matching, prioritization, and helping founders act on the results.
-
-## 🎯 Who Is Oppora For?
-
-- Student entrepreneurs
-- Early-stage startup founders
-- Small businesses seeking funding
-- Founders exploring incubators and accelerators
-- Innovators looking for startup competitions and support programs
-
-## 🌍 Vision
-
-Our vision is to make startup opportunities easier to discover, evaluate, and pursue.
-
-Oppora aims to reduce the gap between founders and the resources that can help them grow by transforming fragmented web information into clear, personalized, and actionable intelligence.
-
-## 🛠️ Getting Started
-
-Setup instructions will be added once the implementation and technology stack are finalized.
-
-Typical setup steps will include:
-
-1. Clone the repository.
-2. Install project dependencies.
-3. Configure the required environment variables.
-4. Start the development server.
-5. Open the application locally.
-
-### Environment Variables
-
-Store API credentials securely in environment variables. Never commit API keys or other secrets to the repository.
-
-Example configuration:
-
-```env
-TINYFISH_API_KEY=your_tinyfish_api_key
-LLM_API_KEY=your_llm_api_key
-```
-
-The actual variable names will depend on the APIs and SDKs used in the implementation. Do not use placeholder values as real credentials.
-
-## 🔒 Reliability and Transparency
-
-Oppora is designed to prioritize useful, verifiable information.
-
-- Important opportunity details should link to their original sources.
-- Eligibility matches are informational and should not be treated as official approval.
-- Missing or ambiguous information should be clearly identified.
-- Deadlines and program details should be checked against the official source before applying.
-- Website access, extraction quality, and data freshness may vary.
-
-## 🏆 Built for AZINHACK ’26
-
-Oppora explores how AI and live web automation can simplify a real-world startup challenge.
-
-By combining TinyFish-powered web intelligence with AI-driven analysis, the project aims to make opportunity discovery more efficient, personalized, and actionable.
+Oppora is an intelligent opportunity platform designed for startup founders. Instead of searching fragmented portals and outdated directories, founders use Oppora to discover real grants, accelerators, competitions, and fellowships from the live web, evaluate eligibility with grounded matching, and generate actionable application readiness checklists.
 
 ---
 
-**Oppora — Discover opportunities. Make smarter moves.**
+## 🌟 Core Features
+
+1. **🌐 Web Intelligence via TinyFish Search & Fetch APIs**
+   - **TinyFish Search API** (`https://api.search.tinyfish.ai`): Discovers fresh grant calls, accelerators, competitions, and funding programs across the live web.
+   - **TinyFish Fetch API** (`https://api.fetch.tinyfish.ai`): Headless Chromium extraction bypassing anti-bot walls to extract clean, structured Markdown from opportunity pages.
+   - **Source Grounding**: Every opportunity retains its primary source URL and retrieval timestamp. Factual fields (amounts, deadlines, requirements) are grounded in source content and never invented.
+
+2. **🎯 Grounded Eligibility Matching & Disqualification Safeguards**
+   - Compares the startup profile (industry, stage, country, organization type) against parsed opportunity criteria.
+   - Computes an **Estimated Relevance Score (0–100%)** with calibrated tiers (*High Fit*, *Moderate Fit*, *Low Fit*, *Disqualified / Low Fit*).
+   - **Disqualification Hard Caps**: Enforces strict caps (score $\le 25\%$) when disqualifying conditions exist (e.g. geographic ineligibility, expired deadlines, incompatible stage barriers).
+   - **Confidence Scoring**: Adjusts confidence ratings when program disclosures are incomplete.
+
+3. **📅 Deadline Intelligence & Expiration Detection**
+   - Differentiates specific calendar deadlines, rolling reviews, and unstated deadlines.
+   - Automatically detects and flags expired opportunities with a dedicated indicator.
+
+4. **📋 Application Readiness Assistant & State Persistence**
+   - Generates categorized checklists for any selected opportunity:
+     - **Provider Requirements** (mandatory submission assets)
+     - **Manual Verifications** (verifying timezone cutoffs, legal entity status)
+     - **Preparation Steps** (pitch deck tailoring, cap table audits)
+   - Tracks completion progress with persistence in `localStorage`, plus bulk "Mark all done" and "Reset" actions.
+
+5. **⚡ Truthful Live vs. Demo Signaling**
+   - If `TINYFISH_API_KEY` is not configured or in Demo Mode, Oppora activates verified real-world benchmark data (NSF SBIR Phase I, Y Combinator, EIC Accelerator, Google for Startups AI, Thiel Fellowship, Techstars Anywhere).
+   - All benchmark data is explicitly labeled **"Demo Benchmark"** and never misrepresented as live scrapes.
+
+6. **🎛️ Judge Preset Switcher**
+   - Instantly switch between 3 diverse benchmark startup profiles (US HealthTech, EU CleanTech, Student AI Founder) to test eligibility and geographic disqualification dynamics in 1 click.
+
+---
+
+## 🏗️ Architecture & Verified Tech Stack
+
+- **Framework**: Next.js 14 (App Router) with TypeScript
+- **Styling**: Tailored Vanilla CSS Design System with dark glassmorphic cards, responsive grid, and micro-animations
+- **Data Validation**: Zod (`UserProfileSchema`, `OpportunitySchema`)
+- **Web Intelligence**: TinyFish Search & Fetch APIs
+- **Icons**: Lucide React
+
+```
+Oppora/
+├── src/
+│   ├── app/
+│   │   ├── api/
+│   │   │   ├── discover/route.ts      # Server-side TinyFish Search + Fetch + Matching pipeline
+│   │   │   └── health/route.ts        # Health check and configuration status
+│   │   ├── globals.css                # CSS design tokens & glassmorphism
+│   │   ├── layout.tsx                 # HTML5 metadata & responsive layout
+│   │   └── page.tsx                   # Main Oppora Intelligence Dashboard & Checklist drawer
+│   ├── lib/
+│   │   ├── checklistGenerator.ts      # Application readiness checklist generator
+│   │   ├── matchingEngine.ts          # Deterministic, grounded eligibility matching & conflict engine
+│   │   ├── mockData.ts                # Verified benchmark opportunities & default profile
+│   │   └── tinyfish.ts                # TinyFish Search & Fetch API client with timeouts & error handling
+│   └── types/
+│       └── opportunity.ts             # TypeScript interfaces & Zod validation schema
+├── DEMO_SCRIPT.md                     # Hackathon presentation & judge walkthrough script
+├── test_pipeline.js                   # Automated test verification suite
+├── .env.example                       # Environment variable template
+├── next.config.mjs
+├── package.json
+└── tsconfig.json
+```
+
+---
+
+## 🔌 Verified TinyFish Endpoints
+
+Both endpoints require the `X-API-Key` HTTP header. Both endpoints have been tested and verified against the live TinyFish network:
+
+1. **TinyFish Search API**:
+   - `GET https://api.search.tinyfish.ai?query={query}&location=US&purpose={purpose}`
+   - Header: `X-API-Key: $TINYFISH_API_KEY`
+   - Verified Live Response: Returns HTTP 200 with structured discovery items (`position`, `site_name`, `title`, `snippet`, `url`).
+   - Verified Error Response (unauthenticated): Returns HTTP 401 with `{"error":{"code":"MISSING_API_KEY","message":"X-API-Key header is required"}}`.
+
+2. **TinyFish Fetch API**:
+   - `POST https://api.fetch.tinyfish.ai`
+   - Header: `X-API-Key: $TINYFISH_API_KEY`, `Content-Type: application/json`
+   - Body: `{ "urls": [...], "format": "markdown", "purpose": "...", "links": true }`
+   - Verified Live Response: Returns HTTP 200 with headless Chromium rendered Markdown (`url`, `final_url`, `title`, `text`, `links`, `latency_ms`).
+   - SSRF Protection: Verified on both original URL and redirected `final_url` to prevent intranet/cloud-metadata access.
+
+---
+
+## 🚀 Getting Started & Local Development
+
+### 1. Prerequisites
+- Node.js 18+ (tested on Node.js v24 LTS)
+- npm
+
+### 2. Installation
+```bash
+git clone <repo-url>
+cd Oppora
+
+# Install dependencies
+npm install
+```
+
+### 3. Environment Setup
+Copy `.env.example` to `.env.local`:
+```bash
+cp .env.example .env.local
+```
+Configure your credentials in `.env.local`:
+```env
+TINYFISH_API_KEY=your_tinyfish_api_key_here
+```
+*(If omitted, Oppora automatically and safely runs in Demo Benchmark mode).*
+
+### 4. Running the Automated Verification Suite
+Oppora includes an automated 20-test suite verifying API endpoints, Zod schemas, SSRF defenses, mock upstream failure paths (401/429/500/timeout), URL deduplication, and matching engine disqualification bounds:
+```bash
+npm test
+# Or: node test_pipeline.js
+```
+
+### 5. Running the Application Locally
+```bash
+# Development mode
+npm run dev
+
+# Or production build & start
+npm run build
+npm run start
+```
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+---
+
+## 🚢 Deployment (Vercel)
+
+Oppora is production-ready for deployment on Vercel:
+
+1. Push your repository to GitHub.
+2. In the [Vercel Dashboard](https://vercel.com/new), import the repository.
+3. Framework Preset: **Next.js**.
+4. Root Directory: `./` (or the folder containing `package.json`).
+5. In **Environment Variables**, add:
+   - `TINYFISH_API_KEY` = your TinyFish API key (from [tinyfish.ai](https://tinyfish.ai))
+   - `OPPORA_DEFAULT_MODE` = `live` (or leave default)
+6. Click **Deploy**. Vercel will run `npm run build` and launch Oppora with global edge performance.
+
+---
+
+## 🎬 Hackathon Demonstration
+
+For the complete 2-minute judge walkthrough, see [DEMO_SCRIPT.md](file:///c:/Users/soumi/OneDrive/Desktop/Soumil/College/hackathons/OPPORA/Oppora/DEMO_SCRIPT.md).
