@@ -12,6 +12,8 @@ import {
 import { DEFAULT_USER_PROFILE, PRESET_PROFILES, SAMPLE_OPPORTUNITIES } from "@/lib/mockData";
 import { evaluateOpportunityMatch } from "@/lib/matchingEngine";
 import { generateApplicationChecklist } from "@/lib/checklistGenerator";
+import { createClient } from "@/lib/supabase/client";
+import { getSupabaseConfig } from "@/lib/supabase/config";
 import {
   Search,
   Sparkles,
@@ -68,7 +70,7 @@ export default function DiscoverPage() {
   const [discoveryNotice, setDiscoveryNotice] = useState<string>("");
   const [tinyFishConfigured, setTinyFishConfigured] = useState<boolean>(false);
 
-  // 1. Initialize Profile from localStorage & initial matching
+  // 1. Initialize Profile from localStorage & initial matching, with Supabase remote sync when authenticated
   useEffect(() => {
     let initialProf = DEFAULT_USER_PROFILE;
     try {
@@ -93,6 +95,62 @@ export default function DiscoverPage() {
     })).sort((a, b) => (b.match?.matchScore ?? 0) - (a.match?.matchScore ?? 0));
 
     setOpportunities(initialMatched);
+
+    // If Supabase is configured, check authenticated session and pull persistent bookmarks
+    const { isConfigured } = getSupabaseConfig();
+    if (isConfigured) {
+      try {
+        const supabase = createClient();
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session) {
+            // Fetch remote saved IDs
+            fetch("/api/auth/saved")
+              .then((res) => res.json())
+              .then((data) => {
+                if (data.saved && Array.isArray(data.saved)) {
+                  const dbIds: string[] = data.saved.map((r: any) => r.opportunity_id);
+                  setSavedIds(dbIds);
+                }
+              })
+              .catch(() => {});
+
+            // Fetch remote profile
+            fetch("/api/auth/profile")
+              .then((res) => res.json())
+              .then((data) => {
+                if (data.profile) {
+                  const p = data.profile;
+                  const converted: UserProfile = {
+                    startupName: p.full_name || "My Venture",
+                    country: p.country || "India",
+                    region: "Asia-Pacific",
+                    state: p.state || "",
+                    industry: p.industry || "HealthTech & AI",
+                    stage: p.startup_stage || "Prototype",
+                    organizationType: p.organization_type || "Incorporated Startup",
+                    entityType: p.entity_type || "Private Limited (Pvt Ltd)",
+                    dpiitRecognized: p.dpiit_recognized || "In Progress / Not Sure",
+                    fundingNeed: p.funding_needs || "",
+                    focusKeywords: p.keywords || [],
+                    description: p.startup_description || "",
+                  };
+                  setProfile(converted);
+                  setEditedProfile(converted);
+                  setOpportunities((prev) =>
+                    prev
+                      .map((opp) => ({
+                        ...opp,
+                        match: evaluateOpportunityMatch(opp, converted),
+                      }))
+                      .sort((a, b) => (b.match?.matchScore ?? 0) - (a.match?.matchScore ?? 0))
+                  );
+                }
+              })
+              .catch(() => {});
+          }
+        });
+      } catch {}
+    }
   }, []);
 
   // 2. Query /api/health to inspect backend configuration
@@ -184,10 +242,29 @@ export default function DiscoverPage() {
   // Bookmark toggle
   const toggleSave = (id: string) => {
     setSavedIds((prev) => {
-      const next = prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id];
+      const isCurrentlySaved = prev.includes(id);
+      const next = isCurrentlySaved ? prev.filter((item) => item !== id) : [...prev, id];
       try {
         localStorage.setItem("oppora_saved_ids", JSON.stringify(next));
       } catch {}
+
+      // Attempt remote sync if authenticated
+      const { isConfigured } = getSupabaseConfig();
+      if (isConfigured) {
+        if (isCurrentlySaved) {
+          fetch(`/api/auth/saved?opportunityId=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+        } else {
+          const targetOpp = opportunities.find((o) => o.id === id) || SAMPLE_OPPORTUNITIES.find((o) => o.id === id);
+          if (targetOpp) {
+            fetch("/api/auth/saved", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ opportunity: targetOpp }),
+            }).catch(() => {});
+          }
+        }
+      }
+
       return next;
     });
   };
@@ -198,6 +275,7 @@ export default function DiscoverPage() {
     const generated = generateApplicationChecklist(opp);
     setChecklist(generated);
 
+    // Initial local cache retrieval
     try {
       const savedCompleted = localStorage.getItem(`oppora_chk_${opp.id}`);
       if (savedCompleted) {
@@ -208,16 +286,54 @@ export default function DiscoverPage() {
     } catch {
       setCompletedChecklistIds([]);
     }
+
+    // Remote checklist sync if authenticated
+    const { isConfigured } = getSupabaseConfig();
+    if (isConfigured) {
+      fetch(`/api/auth/checklist?opportunityId=${encodeURIComponent(opp.id)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.items && Array.isArray(data.items)) {
+            const completedRemoteIds = data.items
+              .filter((item: any) => item.is_completed)
+              .map((item: any) => item.item_id);
+            if (completedRemoteIds.length > 0) {
+              setCompletedChecklistIds(completedRemoteIds);
+            }
+          }
+        })
+        .catch(() => {});
+    }
   };
 
   // Toggle individual checklist item
   const toggleChecklistItem = (itemId: string) => {
     if (!selectedOpp) return;
     setCompletedChecklistIds((prev) => {
-      const next = prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId];
+      const isCompletedNow = !prev.includes(itemId);
+      const next = isCompletedNow ? [...prev, itemId] : prev.filter((id) => id !== itemId);
       try {
         localStorage.setItem(`oppora_chk_${selectedOpp.id}`, JSON.stringify(next));
       } catch {}
+
+      // Remote checklist persistence
+      const { isConfigured } = getSupabaseConfig();
+      if (isConfigured) {
+        const itemObj = checklist.find((c) => c.id === itemId);
+        fetch("/api/auth/checklist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            opportunityId: selectedOpp.id,
+            itemId,
+            itemTitle: itemObj?.title || "",
+            category: itemObj?.category || "",
+            priority: itemObj?.priority || "medium",
+            isCompleted: isCompletedNow,
+          }),
+        }).catch(() => {});
+      }
+
       return next;
     });
   };
@@ -229,6 +345,24 @@ export default function DiscoverPage() {
     try {
       localStorage.setItem(`oppora_chk_${selectedOpp.id}`, JSON.stringify(allIds));
     } catch {}
+
+    const { isConfigured } = getSupabaseConfig();
+    if (isConfigured) {
+      checklist.forEach((item) => {
+        fetch("/api/auth/checklist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            opportunityId: selectedOpp.id,
+            itemId: item.id,
+            itemTitle: item.title,
+            category: item.category,
+            priority: item.priority,
+            isCompleted: true,
+          }),
+        }).catch(() => {});
+      });
+    }
   };
 
   const handleResetChecklist = () => {
@@ -237,6 +371,24 @@ export default function DiscoverPage() {
     try {
       localStorage.removeItem(`oppora_chk_${selectedOpp.id}`);
     } catch {}
+
+    const { isConfigured } = getSupabaseConfig();
+    if (isConfigured) {
+      checklist.forEach((item) => {
+        fetch("/api/auth/checklist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            opportunityId: selectedOpp.id,
+            itemId: item.id,
+            itemTitle: item.title,
+            category: item.category,
+            priority: item.priority,
+            isCompleted: false,
+          }),
+        }).catch(() => {});
+      });
+    }
   };
 
   // Save updated profile
@@ -245,6 +397,16 @@ export default function DiscoverPage() {
     try {
       localStorage.setItem("oppora_profile", JSON.stringify(editedProfile));
     } catch {}
+
+    const { isConfigured } = getSupabaseConfig();
+    if (isConfigured) {
+      fetch("/api/auth/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editedProfile),
+      }).catch(() => {});
+    }
+
     setIsEditingProfile(false);
 
     setOpportunities((prev) =>

@@ -4,7 +4,9 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
-import { ArrowLeft, CheckCircle2, AlertCircle, ArrowRight } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { getSupabaseConfig } from "@/lib/supabase/config";
+import { ArrowLeft, CheckCircle2, AlertCircle, ArrowRight, Info } from "lucide-react";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -12,20 +14,51 @@ export default function ForgotPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const { isConfigured } = getSupabaseConfig();
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!email.trim() || !email.includes("@")) {
+    const cleanEmail = email.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!cleanEmail || !emailRegex.test(cleanEmail)) {
       setError("Please enter a valid email address.");
       return;
     }
 
+    if (!isConfigured) {
+      setError(
+        "Supabase credentials are not configured in your environment. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local to enable real password recovery."
+      );
+      return;
+    }
+
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+
+    try {
+      const supabase = createClient();
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const redirectTo = `${origin}/auth/callback?next=/reset-password`;
+
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+        redirectTo,
+      });
+
+      if (resetError) {
+        setError(resetError.message);
+        setIsLoading(false);
+        return;
+      }
+
       setSubmitted(true);
-    }, 400);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Unable to initiate password reset. Please try again.";
+      setError(message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -74,13 +107,36 @@ export default function ForgotPasswordPage() {
                   boxShadow: "var(--shadow-subtle)",
                 }}
               />
-              <h1 style={{ fontSize: "1.9rem", marginBottom: "0.4rem" }}>
+              <h1 style={{ fontSize: "1.9rem", marginBottom: "0.4rem", color: "var(--text-ink)" }}>
                 Reset Password
               </h1>
               <p style={{ fontSize: "0.88rem", color: "var(--text-muted)" }}>
-                Enter your account email to receive a password recovery link.
+                Enter your account email to receive a secure recovery link.
               </p>
             </div>
+
+            {/* Supabase Status Banner */}
+            {!isConfigured && !submitted && (
+              <div
+                style={{
+                  backgroundColor: "var(--surface-subtle)",
+                  border: "1px solid var(--border-subtle)",
+                  borderRadius: "var(--radius-sm)",
+                  padding: "0.85rem 1rem",
+                  marginBottom: "1.5rem",
+                  display: "flex",
+                  gap: "0.6rem",
+                  fontSize: "0.82rem",
+                  color: "var(--text-muted)",
+                  lineHeight: 1.5,
+                }}
+              >
+                <Info size={16} color="var(--brand-forest)" style={{ flexShrink: 0, marginTop: "2px" }} />
+                <div>
+                  <strong>Configuration Required:</strong> Supabase credentials are not set in <code>.env.local</code>. Set <code>NEXT_PUBLIC_SUPABASE_URL</code> and <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to enable live password reset.
+                </div>
+              </div>
+            )}
 
             {submitted ? (
               <div
@@ -97,7 +153,7 @@ export default function ForgotPasswordPage() {
                   Instructions Dispatched
                 </h3>
                 <p style={{ fontSize: "0.85rem", color: "var(--text-charcoal)", lineHeight: 1.5, marginBottom: "1.25rem" }}>
-                  If an account exists for <strong>{email}</strong>, we have sent instructions to reset your password. Please inspect your inbox and spam folder.
+                  If an account exists for <strong>{email}</strong>, we have dispatched a password reset link. Please check your inbox and spam folder.
                 </p>
                 <Link
                   href="/login"
@@ -138,10 +194,11 @@ export default function ForgotPasswordPage() {
                   <input
                     id="email"
                     type="email"
-                    placeholder="founder@company.com"
+                    placeholder="founder@venture.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    disabled={isLoading}
                     style={{
                       width: "100%",
                       padding: "0.65rem 0.85rem",
@@ -157,7 +214,7 @@ export default function ForgotPasswordPage() {
                   type="submit"
                   disabled={isLoading}
                   className="btn-primary"
-                  style={{ width: "100%", padding: "0.75rem" }}
+                  style={{ width: "100%", padding: "0.75rem", justifyContent: "center" }}
                 >
                   {isLoading ? "Sending Link..." : "Send Reset Link"}
                   <ArrowRight size={15} />

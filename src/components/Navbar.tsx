@@ -1,15 +1,53 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Compass, Bookmark, Menu, X, ArrowRight, ShieldCheck } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Compass, Bookmark, Menu, X, ArrowRight, ShieldCheck, LogOut, User } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { getSupabaseConfig } from "@/lib/supabase/config";
 
 export function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   const isActive = (path: string) => pathname === path;
+
+  useEffect(() => {
+    const { isConfigured } = getSupabaseConfig();
+    if (!isConfigured) return;
+
+    try {
+      const supabase = createClient();
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          setUserEmail(session.user.email || null);
+        } else {
+          setUserEmail(null);
+        }
+      });
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        setUserEmail(session?.user?.email || null);
+      });
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    } catch {}
+  }, []);
+
+  const handleSignOut = async () => {
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      await fetch("/api/auth/logout", { method: "POST" });
+      setUserEmail(null);
+      router.push("/login");
+    } catch {}
+  };
 
   return (
     <header
@@ -144,29 +182,70 @@ export function Navbar() {
             className="desktop-nav"
             style={{ display: "none", alignItems: "center", gap: "0.85rem" }}
           >
-            <Link
-              href="/login"
-              style={{
-                fontSize: "0.88rem",
-                fontWeight: 500,
-                color: "var(--text-muted)",
-                padding: "0.45rem 0.85rem",
-              }}
-            >
-              Sign In
-            </Link>
+            {userEmail ? (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                <Link
+                  href="/workspace"
+                  style={{
+                    fontSize: "0.82rem",
+                    fontWeight: 600,
+                    color: "var(--brand-forest)",
+                    backgroundColor: "var(--brand-forest-light)",
+                    border: "1px solid var(--brand-forest-border)",
+                    borderRadius: "var(--radius-xs)",
+                    padding: "0.35rem 0.75rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.35rem",
+                    textDecoration: "none",
+                  }}
+                >
+                  <User size={13} />
+                  <span>{userEmail.split("@")[0]}</span>
+                </Link>
 
-            <Link
-              href="/onboarding"
-              className="btn-primary"
-              style={{
-                fontSize: "0.84rem",
-                padding: "0.5rem 1rem",
-              }}
-            >
-              Find Opportunities
-              <ArrowRight size={14} />
-            </Link>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  style={{
+                    fontSize: "0.84rem",
+                    color: "var(--text-muted)",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: "0.45rem 0.6rem",
+                  }}
+                >
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  style={{
+                    fontSize: "0.88rem",
+                    fontWeight: 500,
+                    color: "var(--text-muted)",
+                    padding: "0.45rem 0.85rem",
+                  }}
+                >
+                  Sign In
+                </Link>
+
+                <Link
+                  href="/onboarding"
+                  className="btn-primary"
+                  style={{
+                    fontSize: "0.84rem",
+                    padding: "0.5rem 1rem",
+                  }}
+                >
+                  Find Opportunities
+                  <ArrowRight size={14} />
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -261,23 +340,39 @@ export function Navbar() {
           <hr style={{ border: "none", height: "1px", backgroundColor: "var(--border-subtle)" }} />
 
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            <Link
-              href="/login"
-              onClick={() => setMobileMenuOpen(false)}
-              className="btn-secondary"
-              style={{ width: "100%", justifyContent: "center" }}
-            >
-              Sign In
-            </Link>
+            {userEmail ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  handleSignOut();
+                }}
+                className="btn-secondary"
+                style={{ width: "100%", justifyContent: "center", color: "var(--accent-rose)" }}
+              >
+                Sign Out ({userEmail})
+              </button>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="btn-secondary"
+                  style={{ width: "100%", justifyContent: "center" }}
+                >
+                  Sign In
+                </Link>
 
-            <Link
-              href="/onboarding"
-              onClick={() => setMobileMenuOpen(false)}
-              className="btn-primary"
-              style={{ width: "100%", justifyContent: "center" }}
-            >
-              Find Opportunities
-            </Link>
+                <Link
+                  href="/onboarding"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="btn-primary"
+                  style={{ width: "100%", justifyContent: "center" }}
+                >
+                  Find Opportunities
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}
