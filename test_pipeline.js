@@ -608,9 +608,201 @@ async function runTests() {
     failed++;
   }
 
+  // Test 21: Indian Ecosystem Matching (Startup India Seed Fund SISFS & DPIIT Recognition)
+  try {
+    const indianProfile = {
+      startupName: "KavachBio Diagnostics",
+      industry: "HealthTech & AI",
+      country: "India",
+      region: "Asia-Pacific",
+      state: "Karnataka",
+      stage: "Prototype",
+      organizationType: "Incorporated Startup",
+      entityType: "Private Limited (Pvt Ltd)",
+      dpiitRecognized: "Yes",
+      fundingNeed: "₹20 Lakhs - ₹50 Lakhs",
+      focusKeywords: ["MedTech", "AI diagnostics"],
+      description: "Point-of-care medical testing",
+    };
+
+    const res = await fetch(`${BASE_URL}/api/discover`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profile: indianProfile, forceDemo: true }),
+    });
+
+    const data = await res.json();
+    const sisfsOpp = data.opportunities.find((o) => o.id === "opp-sisfs-india-2026");
+    const biracOpp = data.opportunities.find((o) => o.id === "opp-birac-big-2026");
+
+    const sisfsMatches = sisfsOpp && sisfsOpp.match && sisfsOpp.match.matchScore >= 80;
+    const biracMatches = biracOpp && biracOpp.match && biracOpp.match.matchScore >= 80;
+
+    if (sisfsMatches && biracMatches) {
+      console.log(`✓ Test 21 Passed: Indian ecosystem matching verified. KavachBio scored ${sisfsOpp.match.matchScore}% on SISFS and ${biracOpp.match.matchScore}% on BIRAC BIG.`);
+      passed++;
+    } else {
+      console.error("✗ Test 21 Failed: Indian opportunity match score lower than expected:", {
+        sisfsScore: sisfsOpp?.match?.matchScore,
+        biracScore: biracOpp?.match?.matchScore,
+      });
+      failed++;
+    }
+  } catch (err) {
+    console.error("✗ Test 21 Failed with error:", err.message);
+    failed++;
+  }
+
+  // Test 22: State-Specific Jurisdiction Matching (Karnataka ELEVATE vs Out-of-State)
+  try {
+    const karnatakaProfile = {
+      startupName: "AgriPulse KA",
+      industry: "AgriTech",
+      country: "India",
+      region: "Asia-Pacific",
+      state: "Karnataka",
+      stage: "Prototype",
+      organizationType: "Incorporated Startup",
+      entityType: "Private Limited (Pvt Ltd)",
+      dpiitRecognized: "Yes",
+      fundingNeed: "₹25 Lakhs",
+      focusKeywords: ["agritech", "sensors"],
+      description: "Soil moisture sensors",
+    };
+
+    const delhiProfile = {
+      ...karnatakaProfile,
+      startupName: "AgriPulse DL",
+      state: "Delhi NCR",
+    };
+
+    const [resKA, resDL] = await Promise.all([
+      fetch(`${BASE_URL}/api/discover`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile: karnatakaProfile, forceDemo: true }),
+      }),
+      fetch(`${BASE_URL}/api/discover`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile: delhiProfile, forceDemo: true }),
+      }),
+    ]);
+
+    const dataKA = await resKA.json();
+    const dataDL = await resDL.json();
+
+    const elevateKA = dataKA.opportunities.find((o) => o.id === "opp-karnataka-elevate-2026");
+    const elevateDL = dataDL.opportunities.find((o) => o.id === "opp-karnataka-elevate-2026");
+
+    const kaHigh = elevateKA && elevateKA.match && elevateKA.match.matchScore >= 75;
+    const dlLower = elevateDL && elevateDL.match && elevateDL.match.matchScore < elevateKA.match.matchScore;
+
+    if (kaHigh && dlLower) {
+      console.log(`✓ Test 22 Passed: State-level jurisdiction matching verified. Karnataka entity scored ${elevateKA.match.matchScore}% on ELEVATE while Delhi entity scored ${elevateDL.match.matchScore}%.`);
+      passed++;
+    } else {
+      console.error("✗ Test 22 Failed: State-specific score differential failed:", {
+        kaScore: elevateKA?.match?.matchScore,
+        dlScore: elevateDL?.match?.matchScore,
+      });
+      failed++;
+    }
+  } catch (err) {
+    console.error("✗ Test 22 Failed with error:", err.message);
+    failed++;
+  }
+
+  // Test 23: Delhi AI Student without DPIIT Recognition User Journey
+  try {
+    const delhiStudentProfile = {
+      startupName: "IndicScribe AI",
+      industry: "Artificial Intelligence",
+      country: "India",
+      region: "Asia-Pacific",
+      state: "Delhi",
+      stage: "Idea",
+      organizationType: "Student Founder",
+      entityType: "Student / Academic Project",
+      dpiitRecognized: "No",
+      fundingNeed: "₹5 Lakhs",
+      focusKeywords: ["AI", "NLP"],
+      description: "Speech synthesis agents",
+    };
+
+    const res = await fetch(`${BASE_URL}/api/discover`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profile: delhiStudentProfile, forceDemo: true }),
+    });
+
+    const data = await res.json();
+    const meityTide = data.opportunities.find((o) => o.id === "opp-meity-tide-2026");
+    const sisfs = data.opportunities.find((o) => o.id === "opp-sisfs-india-2026");
+    const elevate = data.opportunities.find((o) => o.id === "opp-karnataka-elevate-2026");
+
+    const tideSynergy = meityTide && meityTide.match && meityTide.match.matchScore >= 80;
+    const sisfsConflict = sisfs && sisfs.match && sisfs.match.potentialConflicts.some((c) => c.includes("DPIIT"));
+    const elevateStateRestriction = elevate && elevate.match && elevate.match.potentialConflicts.some((c) => c.includes("State Jurisdiction Restriction"));
+
+    if (tideSynergy && sisfsConflict && elevateStateRestriction) {
+      console.log(`✓ Test 23 Passed: Delhi student journey verified (MeitY TIDE 2.0: ${meityTide.match.matchScore}%, SISFS DPIIT prerequisite flagged, ELEVATE state restriction caught).`);
+      passed++;
+    } else {
+      console.error("✗ Test 23 Failed:", { tideScore: meityTide?.match?.matchScore, sisfsConflict, elevateStateRestriction });
+      failed++;
+    }
+  } catch (err) {
+    console.error("✗ Test 23 Failed with error:", err.message);
+    failed++;
+  }
+
+  // Test 24: Maharashtra Biotech Startup with Unconfirmed DPIIT Status Journey
+  try {
+    const mahaBiotechProfile = {
+      startupName: "MahaBio Diagnostics",
+      industry: "BioTech",
+      country: "India",
+      region: "Asia-Pacific",
+      state: "Maharashtra",
+      stage: "Prototype",
+      organizationType: "Incorporated Startup",
+      entityType: "Private Limited (Pvt Ltd)",
+      dpiitRecognized: "In Progress / Not Sure",
+      fundingNeed: "₹50 Lakhs",
+      focusKeywords: ["biotech", "molecular"],
+      description: "AMR diagnostic test strips",
+    };
+
+    const res = await fetch(`${BASE_URL}/api/discover`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profile: mahaBiotechProfile, forceDemo: true }),
+    });
+
+    const data = await res.json();
+    const biracBig = data.opportunities.find((o) => o.id === "opp-birac-big-2026");
+    const sisfs = data.opportunities.find((o) => o.id === "opp-sisfs-india-2026");
+
+    const biracHigh = biracBig && biracBig.match && biracBig.match.matchScore >= 90;
+    const sisfsPendingVerification = sisfs && sisfs.match && sisfs.match.verificationNeeded.some((v) => v.includes("DPIIT Status Verification"));
+
+    if (biracHigh && sisfsPendingVerification) {
+      console.log(`✓ Test 24 Passed: Maharashtra biotech journey verified (BIRAC BIG score: ${biracBig.match.matchScore}%, SISFS DPIIT status treated as verification needed without hard disqualification).`);
+      passed++;
+    } else {
+      console.error("✗ Test 24 Failed:", { biracScore: biracBig?.match?.matchScore, sisfsPendingVerification });
+      failed++;
+    }
+  } catch (err) {
+    console.error("✗ Test 24 Failed with error:", err.message);
+    failed++;
+  }
+
   console.log(`\n=== ALL AUDIT CHECKS COMPLETE: ${passed} PASSED, ${failed} FAILED ===`);
   if (failed > 0) process.exit(1);
 }
 
 runTests();
+
 

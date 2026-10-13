@@ -13,6 +13,10 @@ export const metadata: Metadata = {
     "TinyFish",
     "AI startup matching",
   ],
+  icons: {
+    icon: "/oppora-logo.jpg",
+    apple: "/oppora-logo.jpg",
+  },
 };
 
 export default function RootLayout({

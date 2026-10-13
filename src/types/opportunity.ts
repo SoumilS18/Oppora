@@ -22,6 +22,7 @@ export const UserProfileSchema = z.object({
   industry: z.string().min(1, "Industry is required"),
   country: z.string().min(1, "Country is required"),
   region: z.string().default("Global"),
+  state: z.string().default("").optional(),
   stage: z.enum(["Idea", "Prototype", "MVP", "Early Revenue", "Scaling"]),
   organizationType: z.enum([
     "Student Founder",
@@ -30,6 +31,22 @@ export const UserProfileSchema = z.object({
     "Research Spinout",
     "Early-Stage Team",
   ]),
+  entityType: z
+    .enum([
+      "Private Limited (Pvt Ltd)",
+      "Limited Liability Partnership (LLP)",
+      "Registered Partnership",
+      "Sole Proprietorship / Unregistered",
+      "Student / Academic Project",
+      "Other / Unspecified",
+    ])
+    .default("Other / Unspecified")
+    .optional(),
+  dpiitRecognized: z
+    .enum(["Yes", "No", "In Progress / Not Sure"])
+    .default("In Progress / Not Sure")
+    .optional(),
+  supportPreferences: z.array(z.string()).default([]).optional(),
   fundingNeed: z.string().default(""),
   focusKeywords: z.array(z.string()).default([]),
   description: z.string().default(""),
@@ -51,10 +68,14 @@ export const OpportunitySchema = z.object({
   ]),
   shortDescription: z.string(),
   geographicAvailability: z.string(),
+  geographicScope: z.enum(["National", "State-Specific", "Global", "Regional"]).default("National").optional(),
+  eligibleStates: z.array(z.string()).default([]).optional(),
+  dpiitRequired: z.boolean().default(false).optional(),
   eligibleApplicantTypes: z.array(z.string()),
   industryRequirements: z.array(z.string()),
   stageRequirements: z.array(z.string()),
   fundingAmountOrBenefits: z.string(),
+  fundingType: z.enum(["grant", "convertible_debt", "equity", "fellowship", "non_financial"]).default("grant").optional(),
   applicationDeadline: z.string().nullable(), // ISO date string or null
   deadlineLabel: z.string(), // "Nov 15, 2026", "Rolling Review (Open)", "Deadline Unstated", "Expired"
   deadlineType: z.enum(["specific", "rolling", "unstated", "expired"]).default("unstated"),

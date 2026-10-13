@@ -69,6 +69,37 @@ export function evaluateOpportunityMatch(
     reasons.push(
       `Geographic Compatibility: Program allows applicants from ${profile.country} (${opp.geographicAvailability}).`
     );
+
+    // Sub-check: State-Level Eligibility (e.g. Karnataka ELEVATE or State Startup Missions)
+    if (opp.eligibleStates && opp.eligibleStates.length > 0) {
+      const userState = (profile.state || "").trim().toLowerCase();
+      if (userState) {
+        const stateMatches = opp.eligibleStates.some(
+          (s) => s.toLowerCase() === userState || userState.includes(s.toLowerCase())
+        );
+        if (stateMatches) {
+          score += 10;
+          reasons.push(
+            `State Policy Alignment: Direct match with your declared domicile in ${profile.state} (${opp.eligibleStates.join(", ")}).`
+          );
+        } else {
+          if (opp.geographicScope === "State-Specific") {
+            score -= 25;
+            potentialConflicts.push(
+              `State Jurisdiction Restriction: Scheme is strictly restricted to entities registered in [${opp.eligibleStates.join(", ")}]. Your profile indicates "${profile.state}".`
+            );
+          } else {
+            verificationNeeded.push(
+              `State Focus Notice: Scheme prioritizes applicants in [${opp.eligibleStates.join(", ")}]. Verify whether entities from ${profile.state} are accepted.`
+            );
+          }
+        }
+      } else {
+        verificationNeeded.push(
+          `State Jurisdiction Notice: Scheme requires domicile in [${opp.eligibleStates.join(", ")}]. Verify your state entity registration.`
+        );
+      }
+    }
   } else {
     // Check if geography is clearly specific and does NOT match user country
     const isEuOnly = isEuProgram && !userIsEuropean;
@@ -191,6 +222,34 @@ export function evaluateOpportunityMatch(
     verificationNeeded.push(
       `Entity Requirements: Stated applicant types are [${opp.eligibleApplicantTypes.join(", ")}]. Verify if "${profile.organizationType}" qualifies without prior incorporation.`
     );
+  }
+
+  // 5.5 DPIIT Startup Recognition (Startup India Framework)
+  if (opp.dpiitRequired) {
+    if (profile.dpiitRecognized === "Yes") {
+      score += 10;
+      reasons.push(
+        "DPIIT Recognition Verified: Confirmed DPIIT recognition satisfies this mandatory government scheme prerequisite."
+      );
+    } else if (profile.dpiitRecognized === "No") {
+      potentialConflicts.push(
+        "DPIIT Recognition Prerequisite: Scheme strictly mandates DPIIT recognition on the Startup India portal. Your profile specifies 'No'."
+      );
+      score -= 15;
+    } else {
+      verificationNeeded.push(
+        "DPIIT Status Verification: Scheme mandates DPIIT recognition. Complete free registration at startupindia.gov.in before applying."
+      );
+    }
+
+    if (
+      profile.entityType === "Sole Proprietorship / Unregistered" ||
+      profile.entityType === "Student / Academic Project"
+    ) {
+      verificationNeeded.push(
+        `Entity Structure Notice: DPIIT recognition and SISFS require incorporation as a Private Limited Company or LLP. Unregistered projects (${profile.entityType}) must incorporate before submitting.`
+      );
+    }
   }
 
   // 6. Stated Limitations
