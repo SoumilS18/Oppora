@@ -31,11 +31,43 @@ export async function GET() {
     .eq("id", user.id)
     .single();
 
-  if (error && error.code !== "PGRST116") {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  let activeProfile = profile;
+
+  // If profile row doesn't exist yet (e.g. user registered before trigger), seed it idempotently
+  if (!activeProfile) {
+    const metaFullName =
+      user.user_metadata?.full_name ||
+      user.user_metadata?.name ||
+      "";
+
+    const { data: createdProfile } = await supabase
+      .from("profiles")
+      .insert({
+        id: user.id,
+        full_name: metaFullName,
+        country: "India",
+        industry: "HealthTech & AI",
+        startup_stage: "Prototype",
+        organization_type: "Incorporated Startup",
+        entity_type: "Private Limited (Pvt Ltd)",
+        dpiit_recognized: "In Progress / Not Sure",
+      })
+      .select()
+      .single();
+
+    if (createdProfile) {
+      activeProfile = createdProfile;
+    }
+  } else if (!activeProfile.full_name && user.user_metadata?.full_name) {
+    // If profile exists but full_name is empty, sync from user_metadata
+    await supabase
+      .from("profiles")
+      .update({ full_name: user.user_metadata.full_name })
+      .eq("id", user.id);
+    activeProfile.full_name = user.user_metadata.full_name;
   }
 
-  return NextResponse.json({ profile: profile || null, user });
+  return NextResponse.json({ profile: activeProfile || null, user });
 }
 
 export async function POST(request: Request) {

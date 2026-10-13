@@ -12,6 +12,7 @@ export function Navbar() {
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
 
   const isActive = (path: string) => pathname === path;
 
@@ -24,13 +25,33 @@ export function Navbar() {
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session) {
           setUserEmail(session.user.email || null);
+          const metaName = session.user.user_metadata?.full_name || session.user.user_metadata?.name;
+          if (metaName) setUserName(metaName);
+
+          // Also pull verified profile row from API
+          fetch("/api/auth/profile")
+            .then((res) => res.json())
+            .then((data) => {
+              if (data.profile?.full_name) {
+                setUserName(data.profile.full_name);
+              }
+            })
+            .catch(() => {});
         } else {
           setUserEmail(null);
+          setUserName(null);
         }
       });
 
       const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        setUserEmail(session?.user?.email || null);
+        if (session) {
+          setUserEmail(session.user.email || null);
+          const metaName = session.user.user_metadata?.full_name || session.user.user_metadata?.name;
+          if (metaName) setUserName(metaName);
+        } else {
+          setUserEmail(null);
+          setUserName(null);
+        }
       });
 
       return () => {
@@ -45,7 +66,8 @@ export function Navbar() {
       await supabase.auth.signOut();
       await fetch("/api/auth/logout", { method: "POST" });
       setUserEmail(null);
-      router.push("/login");
+      setUserName(null);
+      window.location.href = "/login";
     } catch {}
   };
 
@@ -201,7 +223,7 @@ export function Navbar() {
                   }}
                 >
                   <User size={13} />
-                  <span>{userEmail.split("@")[0]}</span>
+                  <span>{userName || (userEmail ? userEmail.split("@")[0] : "My Workspace")}</span>
                 </Link>
 
                 <button
@@ -350,7 +372,7 @@ export function Navbar() {
                 className="btn-secondary"
                 style={{ width: "100%", justifyContent: "center", color: "var(--accent-rose)" }}
               >
-                Sign Out ({userEmail})
+                Sign Out {userName ? `(${userName})` : userEmail ? `(${userEmail})` : ""}
               </button>
             ) : (
               <>

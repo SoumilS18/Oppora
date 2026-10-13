@@ -23,6 +23,8 @@ function LoginForm() {
 
   const { isConfigured } = getSupabaseConfig();
 
+  const [loggedInEmail, setLoggedInEmail] = useState<string | null>(null);
+
   // Check for error or message parameters passed via redirect
   useEffect(() => {
     const errorParam = searchParams.get("error");
@@ -31,23 +33,24 @@ function LoginForm() {
     }
   }, [searchParams]);
 
-  // If already logged in, check session on load
+  // If already logged in, check session on load and immediately transition to destination
   useEffect(() => {
     if (!isConfigured) return;
     try {
       const supabase = createClient();
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session) {
+          setLoggedInEmail(session.user.email || null);
           const rawNext = searchParams.get("next");
           const destination =
             rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//")
               ? rawNext
               : "/workspace";
-          router.replace(destination);
+          window.location.href = destination;
         }
       });
     } catch {}
-  }, [isConfigured, searchParams, router]);
+  }, [isConfigured, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,7 +105,8 @@ function LoginForm() {
             ? rawNext
             : "/workspace";
 
-        router.push(destination);
+        // Force full page reload to sync SSR cookies and middleware state cleanly
+        window.location.href = destination;
       }
     } catch (err: unknown) {
       const message =
@@ -191,6 +195,37 @@ function LoginForm() {
         >
           <AlertCircle size={16} style={{ flexShrink: 0, marginTop: "2px" }} />
           <span>{error}</span>
+        </div>
+      )}
+
+      {/* Already Authenticated Banner */}
+      {loggedInEmail && (
+        <div
+          style={{
+            backgroundColor: "var(--brand-forest-light)",
+            border: "1px solid var(--brand-forest-border)",
+            borderRadius: "var(--radius-sm)",
+            padding: "0.85rem 1rem",
+            marginBottom: "1.25rem",
+            fontSize: "0.85rem",
+            color: "var(--brand-forest)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "0.5rem",
+          }}
+        >
+          <span>
+            You are currently signed in as <strong>{loggedInEmail}</strong>.
+          </span>
+          <Link
+            href="/workspace"
+            className="btn-primary"
+            style={{ padding: "0.35rem 0.85rem", fontSize: "0.8rem", textDecoration: "none" }}
+          >
+            Go to Workspace &rarr;
+          </Link>
         </div>
       )}
 
