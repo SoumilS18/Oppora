@@ -55,7 +55,7 @@ export default function HomePage() {
                 }}
               >
                 <ShieldCheck size={14} />
-                Startup Opportunity Intelligence &bull; India & Global
+                AI-Powered Startup Operations Copilot &amp; Growth Platform
               </div>
 
               {/* Editorial Title */}
@@ -69,10 +69,10 @@ export default function HomePage() {
                   marginBottom: "1.35rem",
                 }}
               >
-                Better Opportunities.
+                Run Smarter.
                 <br />
                 <span style={{ fontStyle: "italic", color: "var(--brand-forest)" }}>
-                  Smarter Moves.
+                  Grow Further.
                 </span>
               </h1>
 
@@ -82,11 +82,11 @@ export default function HomePage() {
                   fontSize: "1.12rem",
                   color: "var(--text-muted)",
                   lineHeight: 1.62,
-                  maxWidth: "710px",
+                  maxWidth: "740px",
                   margin: "0 auto 2.25rem auto",
                 }}
               >
-                Indian founders miss out on crores in non-dilutive government schemes, incubator seed capital, and global accelerators because guidelines are scattered across unindexed ministry portals. Oppora discovers verified programmes, assesses eligibility against your startup profile, and organizes application readiness.
+                Oppora is the operational copilot for founders and growing businesses. Maintain reliable inventory and sales records, anticipate stock shortages, prepare reviewable supplier emails, and discover non-dilutive government grants and growth opportunities in one unified workspace.
               </p>
 
               {/* Action Buttons */}
@@ -100,21 +100,21 @@ export default function HomePage() {
                 }}
               >
                 <Link
-                  href="/onboarding"
+                  href="/dashboard"
                   className="btn-primary"
                   style={{ fontSize: "1rem", padding: "0.85rem 1.75rem" }}
                 >
-                  Find My Opportunities
+                  Launch Operations Hub
                   <ArrowRight size={16} />
                 </Link>
 
                 <Link
-                  href="/discover"
+                  href="/opportunities"
                   className="btn-secondary"
                   style={{ fontSize: "1rem", padding: "0.85rem 1.6rem" }}
                 >
                   <Compass size={16} />
-                  Explore Programme Catalog
+                  Explore Grants &amp; Programs
                 </Link>
               </div>
             </div>

@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node test_pipeline.js",
+    "test": "node test_action_centre.js && node test_operations.js && node test_pipeline.js",
+    "test:actions": "node test_action_centre.js",
+    "test:operations": "node test_operations.js",
     "lint": "next lint"
   },
   "dependencies": {

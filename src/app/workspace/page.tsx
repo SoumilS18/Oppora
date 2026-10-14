@@ -390,10 +390,13 @@ export default function WorkspacePage() {
             </div>
 
             <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+              <Link href="/dashboard" className="btn-primary" style={{ fontSize: "0.85rem" }}>
+                <ArrowRight size={14} /> Open Operations Hub
+              </Link>
               <Link href="/onboarding" className="btn-secondary" style={{ fontSize: "0.85rem" }}>
                 <Edit3 size={14} /> Edit Profile
               </Link>
-              <Link href="/discover" className="btn-primary" style={{ fontSize: "0.85rem" }}>
+              <Link href="/discover" className="btn-secondary" style={{ fontSize: "0.85rem" }}>
                 <Compass size={14} /> Discover Programs
               </Link>
               {isAuthenticated && (
@@ -410,6 +413,52 @@ export default function WorkspacePage() {
                   <LogOut size={14} /> Sign Out
                 </button>
               )}
+            </div>
+          </div>
+
+          {/* Oppora 2.0 Operations Hub Banner */}
+          <div
+            style={{
+              backgroundColor: "#FFFFFF",
+              border: "1px solid var(--brand-forest-border)",
+              borderRadius: "var(--radius-md)",
+              padding: "1rem 1.25rem",
+              marginBottom: "1.5rem",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "1rem",
+              boxShadow: "var(--shadow-subtle)",
+            }}
+          >
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", marginBottom: "0.2rem" }}>
+                <span className="badge badge-forest">OPPORA 2.0 COPILOT</span>
+                <strong style={{ fontSize: "0.95rem", color: "var(--brand-forest)" }}>
+                  Multi-Module Startup Operations Platform
+                </strong>
+              </div>
+              <p style={{ fontSize: "0.82rem", color: "var(--text-charcoal)" }}>
+                Manage daily inventory, record sales transactions, track low-stock thresholds, and automate supplier emails.
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              <Link href="/dashboard" className="btn-primary" style={{ fontSize: "0.78rem", padding: "0.4rem 0.75rem" }}>
+                Overview Dashboard
+              </Link>
+              <Link href="/inventory" className="btn-secondary" style={{ fontSize: "0.78rem", padding: "0.4rem 0.75rem" }}>
+                Inventory
+              </Link>
+              <Link href="/sales" className="btn-secondary" style={{ fontSize: "0.78rem", padding: "0.4rem 0.75rem" }}>
+                Sales
+              </Link>
+              <Link href="/suppliers" className="btn-secondary" style={{ fontSize: "0.78rem", padding: "0.4rem 0.75rem" }}>
+                Suppliers
+              </Link>
+              <Link href="/assistant" className="btn-secondary" style={{ fontSize: "0.78rem", padding: "0.4rem 0.75rem" }}>
+                AI Assistant
+              </Link>
             </div>
           </div>
 

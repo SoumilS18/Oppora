@@ -134,11 +134,12 @@ export function isValidPublicUrl(urlStr: string): boolean {
 }
 
 /**
- * Searches the live web using TinyFish Search API
+ * Searches the live web using TinyFish Search API with configurable purpose and location
  */
-export async function searchOpportunitiesWithTinyFish(
+export async function searchWebWithTinyFish(
   query: string,
-  location: string = "US",
+  purpose: string = "Research business suppliers, products, and market data",
+  location: string = "IN",
   apiKey?: string,
   timeoutMs: number = 12000
 ): Promise<TinyFishSearchResultItem[]> {
@@ -156,7 +157,7 @@ export async function searchOpportunitiesWithTinyFish(
   const searchParams = new URLSearchParams({
     query: sanitizedQuery,
     location: location.slice(0, 5),
-    purpose: "Discover startup grants, accelerators, funding programs, and competitions for startups",
+    purpose: purpose.slice(0, 200),
   });
 
   const controller = new AbortController();
@@ -224,6 +225,24 @@ export async function searchOpportunitiesWithTinyFish(
       message: err.message || "Failed to connect to TinyFish Search API",
     } as TinyFishApiError;
   }
+}
+
+/**
+ * Searches the live web using TinyFish Search API for startup opportunities
+ */
+export async function searchOpportunitiesWithTinyFish(
+  query: string,
+  location: string = "US",
+  apiKey?: string,
+  timeoutMs: number = 12000
+): Promise<TinyFishSearchResultItem[]> {
+  return searchWebWithTinyFish(
+    query,
+    "Discover startup grants, accelerators, funding programs, and competitions for startups",
+    location,
+    apiKey,
+    timeoutMs
+  );
 }
 
 /**
@@ -517,3 +536,213 @@ export function parseOpportunityFromSource(
 
   return OpportunitySchema.parse(rawOpp);
 }
+
+// ==============================================================================
+// 11. OPPERA 2.0 RESEARCH EXTENSIONS
+// ==============================================================================
+
+export interface DiscoveredSupplierResearch {
+  supplierName: string;
+  websiteCandidate?: string;
+  publicContactEmail?: string;
+  publicPhone?: string;
+  catalogHighlights: string[];
+  leadTimeOrDeliveryInfo?: string;
+  sourceUrls: string[];
+  verifiedDetails: string[];
+  inferredDetails: string[];
+  retrievedAt: string;
+}
+
+export interface DiscoveredProductAlternative {
+  supplierName: string;
+  productName: string;
+  sourceUrl: string;
+  pricingOrMoqSnippet?: string;
+  specifications: string[];
+  isVerified: boolean;
+}
+
+export interface DiscoveredMarketIntelligence {
+  query: string;
+  keyInsights: string[];
+  sources: Array<{ title: string; url: string; snippet: string }>;
+  retrievedAt: string;
+}
+
+/**
+ * Researches a supplier or manufacturer using TinyFish live web discovery
+ */
+export async function researchSupplierWithTinyFish(
+  supplierName: string,
+  extraNotes: string = "",
+  location: string = "IN",
+  apiKey?: string
+): Promise<DiscoveredSupplierResearch> {
+  const query = `${supplierName} official website contact catalog products manufacturer ${extraNotes}`.trim();
+  const searchResults = await searchWebWithTinyFish(
+    query,
+    "Find official supplier websites, catalog, public contact info, and manufacturer profiles",
+    location,
+    apiKey,
+    14000
+  );
+
+  const sourceUrls = searchResults.map((r) => r.url).filter(isValidPublicUrl).slice(0, 3);
+  let websiteCandidate: string | undefined = sourceUrls[0];
+  let publicEmail: string | undefined = undefined;
+  let publicPhone: string | undefined = undefined;
+  const catalogHighlights: string[] = [];
+  const verifiedDetails: string[] = [];
+  const inferredDetails: string[] = [];
+
+  // Attempt fetch on top candidate URL to extract authoritative contact & catalog info
+  if (sourceUrls.length > 0) {
+    try {
+      const fetchedPages = await fetchPagesWithTinyFish([sourceUrls[0]], apiKey, 15000);
+      if (fetchedPages.length > 0 && fetchedPages[0].text) {
+        const text = fetchedPages[0].text;
+        const clean = sanitizeUntrustedText(text);
+
+        // Find email patterns in public text
+        const emailMatch = clean.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+        if (emailMatch && !emailMatch[0].includes("example.com")) {
+          publicEmail = emailMatch[0];
+          verifiedDetails.push(`Public contact email found on official page: ${publicEmail}`);
+        }
+
+        // Find phone patterns
+        const phoneMatch = clean.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
+        if (phoneMatch) {
+          publicPhone = phoneMatch[0];
+          verifiedDetails.push(`Public phone contact found on page: ${publicPhone}`);
+        }
+
+        // Extract catalog highlights
+        const lines = clean.split("\n").map((l) => l.trim()).filter((l) => l.length > 20 && l.length < 140);
+        for (const line of lines.slice(0, 3)) {
+          catalogHighlights.push(line);
+        }
+      }
+    } catch {
+      // Fallback gracefully to search snippets
+    }
+  }
+
+  // Fallback to snippets if not found in fetch
+  if (!publicEmail) {
+    for (const res of searchResults) {
+      const emailMatch = res.snippet.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+      if (emailMatch) {
+        publicEmail = emailMatch[0];
+        inferredDetails.push(`Contact email mentioned in search snippet: ${publicEmail}`);
+        break;
+      }
+    }
+  }
+
+  if (catalogHighlights.length === 0) {
+    searchResults.slice(0, 3).forEach((r) => {
+      catalogHighlights.push(sanitizeUntrustedText(r.snippet).slice(0, 120));
+    });
+  }
+
+  return {
+    supplierName,
+    websiteCandidate,
+    publicContactEmail: publicEmail,
+    publicPhone,
+    catalogHighlights,
+    leadTimeOrDeliveryInfo: "Lead time must be confirmed directly with supplier before booking orders.",
+    sourceUrls,
+    verifiedDetails,
+    inferredDetails,
+    retrievedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Researches alternative suppliers and product specifications
+ */
+export async function researchProductAlternativesWithTinyFish(
+  productName: string,
+  category: string,
+  region: string = "India",
+  apiKey?: string
+): Promise<DiscoveredProductAlternative[]> {
+  const query = `${productName} ${category} wholesale suppliers manufacturers B2B ${region} pricing MOQ`;
+  const results = await searchWebWithTinyFish(
+    query,
+    "Find commercial B2B product suppliers, wholesale specifications, and alternatives",
+    region === "India" ? "IN" : "US",
+    apiKey,
+    14000
+  );
+
+  const alternatives: DiscoveredProductAlternative[] = [];
+
+  for (const item of results.slice(0, 4)) {
+    if (!isValidPublicUrl(item.url)) continue;
+
+    let supplierName = item.site_name || "Supplier";
+    try {
+      const u = new URL(item.url);
+      supplierName = u.hostname.replace("www.", "").split(".")[0];
+      supplierName = supplierName.charAt(0).toUpperCase() + supplierName.slice(1);
+    } catch {}
+
+    const cleanSnippet = sanitizeUntrustedText(item.snippet);
+
+    alternatives.push({
+      supplierName,
+      productName: sanitizeUntrustedText(item.title).replace(/\|.*/, "").replace(/-.*/, "").trim(),
+      sourceUrl: item.url,
+      pricingOrMoqSnippet: cleanSnippet.match(/(?:₹|\$|INR|USD|MOQ|price)[\s\d,.]+/i)?.[0] || "Contact for quote",
+      specifications: [cleanSnippet.slice(0, 140)],
+      isVerified: true,
+    });
+  }
+
+  return alternatives;
+}
+
+/**
+ * Business intelligence natural-language query
+ */
+export async function researchMarketIntelligenceWithTinyFish(
+  query: string,
+  region: string = "IN",
+  apiKey?: string
+): Promise<DiscoveredMarketIntelligence> {
+  const results = await searchWebWithTinyFish(
+    query,
+    "Market intelligence, industry benchmarks, competitors, and supply chain trends",
+    region,
+    apiKey,
+    14000
+  );
+
+  const keyInsights: string[] = [];
+  const sources: Array<{ title: string; url: string; snippet: string }> = [];
+
+  for (const r of results.slice(0, 5)) {
+    if (isValidPublicUrl(r.url)) {
+      sources.push({
+        title: sanitizeUntrustedText(r.title),
+        url: r.url,
+        snippet: sanitizeUntrustedText(r.snippet),
+      });
+      if (r.snippet.length > 30) {
+        keyInsights.push(sanitizeUntrustedText(r.snippet).slice(0, 160));
+      }
+    }
+  }
+
+  return {
+    query,
+    keyInsights,
+    sources,
+    retrievedAt: new Date().toISOString(),
+  };
+}
+

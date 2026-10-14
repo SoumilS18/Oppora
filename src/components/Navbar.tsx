@@ -133,60 +133,92 @@ export function Navbar() {
             style={{
               display: "none",
               alignItems: "center",
-              gap: "1.5rem",
+              gap: "1.25rem",
             }}
             className="desktop-nav"
           >
             <Link
-              href="/discover"
+              href="/dashboard"
               style={{
-                fontSize: "0.88rem",
-                fontWeight: isActive("/discover") ? 600 : 500,
-                color: isActive("/discover") ? "var(--brand-forest)" : "var(--text-muted)",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.35rem",
+                fontSize: "0.86rem",
+                fontWeight: isActive("/dashboard") ? 600 : 500,
+                color: isActive("/dashboard") ? "var(--brand-forest)" : "var(--text-muted)",
                 padding: "0.35rem 0.2rem",
-                borderBottom: isActive("/discover") ? "2px solid var(--brand-forest)" : "2px solid transparent",
+                borderBottom: isActive("/dashboard") ? "2px solid var(--brand-forest)" : "2px solid transparent",
               }}
             >
-              <Compass size={15} />
-              Discover
+              Overview
             </Link>
 
             <Link
-              href="/workspace"
+              href="/inventory"
               style={{
-                fontSize: "0.88rem",
-                fontWeight: isActive("/workspace") ? 600 : 500,
-                color: isActive("/workspace") ? "var(--brand-forest)" : "var(--text-muted)",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.35rem",
+                fontSize: "0.86rem",
+                fontWeight: isActive("/inventory") ? 600 : 500,
+                color: isActive("/inventory") ? "var(--brand-forest)" : "var(--text-muted)",
                 padding: "0.35rem 0.2rem",
-                borderBottom: isActive("/workspace") ? "2px solid var(--brand-forest)" : "2px solid transparent",
+                borderBottom: isActive("/inventory") ? "2px solid var(--brand-forest)" : "2px solid transparent",
               }}
             >
-              <Bookmark size={15} />
-              My Workspace
+              Inventory
             </Link>
 
             <Link
-              href="/#how-it-works"
+              href="/sales"
               style={{
-                fontSize: "0.88rem",
-                fontWeight: 500,
-                color: "var(--text-muted)",
+                fontSize: "0.86rem",
+                fontWeight: isActive("/sales") ? 600 : 500,
+                color: isActive("/sales") ? "var(--brand-forest)" : "var(--text-muted)",
                 padding: "0.35rem 0.2rem",
+                borderBottom: isActive("/sales") ? "2px solid var(--brand-forest)" : "2px solid transparent",
               }}
             >
-              How It Works
+              Sales
+            </Link>
+
+            <Link
+              href="/suppliers"
+              style={{
+                fontSize: "0.86rem",
+                fontWeight: isActive("/suppliers") ? 600 : 500,
+                color: isActive("/suppliers") ? "var(--brand-forest)" : "var(--text-muted)",
+                padding: "0.35rem 0.2rem",
+                borderBottom: isActive("/suppliers") ? "2px solid var(--brand-forest)" : "2px solid transparent",
+              }}
+            >
+              Suppliers
+            </Link>
+
+            <Link
+              href="/opportunities"
+              style={{
+                fontSize: "0.86rem",
+                fontWeight: isActive("/opportunities") || isActive("/discover") ? 600 : 500,
+                color: isActive("/opportunities") || isActive("/discover") ? "var(--brand-forest)" : "var(--text-muted)",
+                padding: "0.35rem 0.2rem",
+                borderBottom: isActive("/opportunities") || isActive("/discover") ? "2px solid var(--brand-forest)" : "2px solid transparent",
+              }}
+            >
+              Opportunities
+            </Link>
+
+            <Link
+              href="/assistant"
+              style={{
+                fontSize: "0.86rem",
+                fontWeight: isActive("/assistant") ? 600 : 500,
+                color: isActive("/assistant") ? "var(--brand-forest)" : "var(--text-muted)",
+                padding: "0.35rem 0.2rem",
+                borderBottom: isActive("/assistant") ? "2px solid var(--brand-forest)" : "2px solid transparent",
+              }}
+            >
+              AI Copilot
             </Link>
 
             <Link
               href="/about"
               style={{
-                fontSize: "0.88rem",
+                fontSize: "0.86rem",
                 fontWeight: isActive("/about") ? 600 : 500,
                 color: isActive("/about") ? "var(--brand-forest)" : "var(--text-muted)",
                 padding: "0.35rem 0.2rem",
@@ -304,35 +336,75 @@ export function Navbar() {
           }}
         >
           <Link
-            href="/discover"
+            href="/dashboard"
             onClick={() => setMobileMenuOpen(false)}
             style={{
               fontSize: "0.95rem",
               fontWeight: 500,
               color: "var(--text-ink)",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
             }}
           >
-            <Compass size={16} color="var(--brand-forest)" />
-            Explore Opportunities
+            Overview
           </Link>
 
           <Link
-            href="/workspace"
+            href="/inventory"
             onClick={() => setMobileMenuOpen(false)}
             style={{
               fontSize: "0.95rem",
               fontWeight: 500,
               color: "var(--text-ink)",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
             }}
           >
-            <Bookmark size={16} color="var(--brand-forest)" />
-            My Workspace
+            Inventory Management
+          </Link>
+
+          <Link
+            href="/sales"
+            onClick={() => setMobileMenuOpen(false)}
+            style={{
+              fontSize: "0.95rem",
+              fontWeight: 500,
+              color: "var(--text-ink)",
+            }}
+          >
+            Sales &amp; Revenue
+          </Link>
+
+          <Link
+            href="/suppliers"
+            onClick={() => setMobileMenuOpen(false)}
+            style={{
+              fontSize: "0.95rem",
+              fontWeight: 500,
+              color: "var(--text-ink)",
+            }}
+          >
+            Suppliers &amp; Restock
+          </Link>
+
+          <Link
+            href="/opportunities"
+            onClick={() => setMobileMenuOpen(false)}
+            style={{
+              fontSize: "0.95rem",
+              fontWeight: 500,
+              color: "var(--text-ink)",
+            }}
+          >
+            Grants &amp; Opportunities
+          </Link>
+
+          <Link
+            href="/assistant"
+            onClick={() => setMobileMenuOpen(false)}
+            style={{
+              fontSize: "0.95rem",
+              fontWeight: 500,
+              color: "var(--text-ink)",
+            }}
+          >
+            AI Operations Copilot
           </Link>
 
           <Link
