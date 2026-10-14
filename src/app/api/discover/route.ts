@@ -125,13 +125,20 @@ export async function POST(req: NextRequest) {
     }
 
     // Mode 2: Live TinyFish Web Discovery Pipeline
+    const isIndia =
+      profile.country?.toLowerCase() === "india" ||
+      profile.region?.toLowerCase().includes("asia");
+    const locationCode = isIndia ? "IN" : "US";
+    const stateTerm = profile.state ? ` ${profile.state}` : "";
+    const industryTerm = profile.industry || "startup";
+
     const searchQuery =
       queryOverride ||
-      `${profile.industry} startup grants accelerators ${profile.country} 2026 apply`;
+      `${industryTerm} startup grants funding government schemes accelerators${stateTerm} ${profile.country} 2026 apply`;
 
     try {
       // Step A: Live TinyFish Search
-      const searchResults = await searchOpportunitiesWithTinyFish(searchQuery, "US", apiKey);
+      const searchResults = await searchOpportunitiesWithTinyFish(searchQuery, locationCode, apiKey);
 
       if (!searchResults || searchResults.length === 0) {
         // Fallback if query returned 0 matches

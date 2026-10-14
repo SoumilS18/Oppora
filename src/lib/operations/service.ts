@@ -128,7 +128,7 @@ export class OperationsService {
     const supabase = createClient();
     let query = supabase
       .from("products")
-      .select("*, suppliers:preferred_supplier_id(name)")
+      .select("*")
       .eq("user_id", userId)
       .eq("is_active", true);
 
@@ -145,6 +145,17 @@ export class OperationsService {
       throw new DatabaseError(`Failed to fetch products from Supabase: ${error.message}`, error);
     }
 
+    // Safely look up supplier names without relying on PostgREST schema cache join relationships
+    const { data: suppliersData } = await supabase
+      .from("suppliers")
+      .select("id, name")
+      .eq("user_id", userId);
+
+    const supplierNameMap = new Map<string, string>();
+    (suppliersData || []).forEach((s: any) => {
+      if (s.id && s.name) supplierNameMap.set(s.id, s.name);
+    });
+
     let products: Product[] = (data || []).map((row: any) => ({
       id: row.id,
       name: row.name,
@@ -158,7 +169,7 @@ export class OperationsService {
       unitCost: Number(row.unit_cost),
       sellingPrice: Number(row.selling_price),
       preferredSupplierId: row.preferred_supplier_id,
-      supplierName: row.suppliers?.name || "Unassigned",
+      supplierName: (row.preferred_supplier_id && supplierNameMap.get(row.preferred_supplier_id)) || "Unassigned",
       storageLocation: row.storage_location || "",
       isLowStock: Number(row.current_stock) <= Number(row.reorder_threshold),
       isActive: row.is_active,
@@ -929,9 +940,20 @@ export class OperationsService {
     const supabase = createClient();
     const { data: products } = await supabase
       .from("products")
-      .select("*, supplier:preferred_supplier_id(*)")
+      .select("*")
       .eq("user_id", userId)
       .eq("is_active", true);
+
+    const { data: suppliersList } = await supabase
+      .from("suppliers")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("is_active", true);
+
+    const supplierMap = new Map<string, any>();
+    (suppliersList || []).forEach((s: any) => {
+      if (s.id) supplierMap.set(s.id, s);
+    });
 
     let lowStockCount = 0;
     let newDrafts = 0;
@@ -950,14 +972,15 @@ export class OperationsService {
           .limit(1);
 
         if (!existing || existing.length === 0) {
-          if (prod.supplier && prod.supplier.is_active) {
+          const supplier = prod.preferred_supplier_id ? supplierMap.get(prod.preferred_supplier_id) : null;
+          if (supplier && supplier.is_active) {
             const suggestedQty = prod.preferred_reorder_quantity || 50;
             await supabase.from("supplier_email_drafts").insert({
               user_id: userId,
-              supplier_id: prod.supplier.id,
+              supplier_id: supplier.id,
               product_id: prod.id,
-              recipient_email: prod.supplier.email,
-              recipient_name: prod.supplier.contact_name || prod.supplier.name,
+              recipient_email: supplier.email,
+              recipient_name: supplier.contact_name || supplier.name,
               subject: `Restock inquiry: ${prod.name} [SKU: ${prod.sku}]`,
               body: `Hello ${prod.supplier.contact_name || prod.supplier.name},\n\nOur current recorded stock of ${prod.name} (SKU: ${prod.sku}) is ${prod.current_stock} ${prod.unit_of_measure}, which has reached our configured reorder threshold of ${prod.reorder_threshold} ${prod.unit_of_measure}.\n\nWe would like to request availability and quote for ${suggestedQty} ${prod.unit_of_measure}.\n\nNote: This inquiry is an operational restock inquiry, not a binding purchase commitment.`,
               suggested_quantity: suggestedQty,
@@ -1159,27 +1182,24 @@ export class OperationsService {
     }
 
     const supabase = createClient();
-    const { data: profile, error } = await supabase
+    const { data: profile } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", userId)
-      .single();
+      .maybeSingle();
 
-    if (error) {
-      throw new DatabaseError(`Failed to fetch settings: ${error.message}`, error);
-    }
-
+    const fallbackName = profile?.full_name ? `${profile.full_name}'s Business` : "My Business";
     const settings: BusinessSettings = {
-      companyName: profile.company_name || "",
-      defaultCurrency: profile.default_currency || "INR",
-      timezone: profile.timezone || "Asia/Kolkata",
-      businessCategory: profile.business_category || "Manufacturing & Retail",
-      country: profile.country || "India",
-      state: profile.state || "",
-      autoLowStockAlerts: profile.auto_low_stock_alerts ?? true,
-      supplierEmailAutoDraft: profile.supplier_email_auto_draft ?? true,
-      emailSenderName: profile.email_sender_name || "",
-      replyToEmail: profile.reply_to_email || "",
+      companyName: profile?.company_name || fallbackName,
+      defaultCurrency: profile?.default_currency || "INR",
+      timezone: profile?.timezone || "Asia/Kolkata",
+      businessCategory: profile?.business_category || profile?.industry || "General Business",
+      country: profile?.country || "India",
+      state: profile?.state || "",
+      autoLowStockAlerts: profile?.auto_low_stock_alerts ?? true,
+      supplierEmailAutoDraft: profile?.supplier_email_auto_draft ?? true,
+      emailSenderName: profile?.email_sender_name || profile?.full_name || "Operations Desk",
+      replyToEmail: profile?.reply_to_email || "",
     };
 
     return { settings, storageMode: "supabase", isDemo };

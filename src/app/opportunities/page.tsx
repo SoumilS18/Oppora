@@ -37,21 +37,63 @@ export default function OpportunitiesPage() {
 
   // Load profile and opportunities
   useEffect(() => {
-    // 1. Try to load saved profile
-    try {
-      const savedProf = localStorage.getItem("oppora_profile");
-      if (savedProf) {
-        setProfile(JSON.parse(savedProf));
+    let activeProf: UserProfile = { ...DEFAULT_USER_PROFILE };
+
+    async function init() {
+      try {
+        // Fetch authenticated user profile & operations settings
+        const [profRes, settsRes] = await Promise.allSettled([
+          fetch("/api/auth/profile"),
+          fetch("/api/operations/settings"),
+        ]);
+
+        if (profRes.status === "fulfilled" && profRes.value.ok) {
+          const profData = await profRes.value.json();
+          if (profData.profile) {
+            const p = profData.profile;
+            activeProf = {
+              ...activeProf,
+              startupName: p.full_name ? `${p.full_name}'s Startup` : activeProf.startupName,
+              industry: p.industry || activeProf.industry,
+              country: p.country || "India",
+              region: p.country === "India" || !p.country ? "Asia-Pacific" : activeProf.region,
+              state: p.state || activeProf.state,
+              stage: (p.startup_stage as any) || activeProf.stage,
+              organizationType: (p.organization_type as any) || activeProf.organizationType,
+              entityType: (p.entity_type as any) || activeProf.entityType,
+              dpiitRecognized: (p.dpiit_recognized as any) || activeProf.dpiitRecognized,
+            };
+          }
+        }
+
+        if (settsRes.status === "fulfilled" && settsRes.value.ok) {
+          const settsData = await settsRes.value.json();
+          if (settsData.settings) {
+            const s = settsData.settings;
+            if (s.companyName) activeProf.startupName = s.companyName;
+            if (s.businessCategory) activeProf.industry = s.businessCategory;
+            if (s.country) activeProf.country = s.country;
+            if (s.state) activeProf.state = s.state;
+          }
+        }
+      } catch {
+        // Fallback to localStorage if offline
+        try {
+          const savedProf = localStorage.getItem("oppora_profile");
+          if (savedProf) {
+            activeProf = { ...activeProf, ...JSON.parse(savedProf) };
+          }
+        } catch {}
       }
-    } catch {}
 
-    // 2. Initial discovery query using profile
-    runDiscovery();
+      setProfile(activeProf);
+      runDiscovery(undefined, activeProf);
+      loadSavedOpportunities(activeProf);
+    }
 
-    // 3. Load saved opportunities from DB or localStorage
-    loadSavedOpportunities();
+    init();
 
-    // 4. Handle URL navigation parameters
+    // Handle URL navigation parameters
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get("tab");
@@ -65,7 +107,8 @@ export default function OpportunitiesPage() {
     }
   }, []);
 
-  const loadSavedOpportunities = async () => {
+  const loadSavedOpportunities = async (targetProf?: UserProfile) => {
+    const profToUse = targetProf || profile;
     try {
       const res = await fetch("/api/auth/saved");
       if (res.ok) {
@@ -73,7 +116,7 @@ export default function OpportunitiesPage() {
         if (data.saved) {
           const mapped = data.saved.map((r: any) => ({
             ...r.opportunity_snapshot,
-            match: evaluateOpportunityMatch(r.opportunity_snapshot, profile),
+            match: evaluateOpportunityMatch(r.opportunity_snapshot, profToUse),
           }));
           setSavedOpportunities(mapped);
           return;
@@ -88,22 +131,23 @@ export default function OpportunitiesPage() {
         const ids = JSON.parse(localSaved);
         const saved = SAMPLE_OPPORTUNITIES.filter((o) => ids.includes(o.id)).map((opp) => ({
           ...opp,
-          match: evaluateOpportunityMatch(opp, profile),
+          match: evaluateOpportunityMatch(opp, profToUse),
         }));
         setSavedOpportunities(saved);
       }
     } catch {}
   };
 
-  const runDiscovery = async (overrideQuery?: string) => {
+  const runDiscovery = async (overrideQuery?: string, targetProf?: UserProfile) => {
     setLoading(true);
     setStatusMessage(null);
+    const profToUse = targetProf || profile;
     try {
       const res = await fetch("/api/discover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          profile,
+          profile: profToUse,
           queryOverride: overrideQuery || searchQuery || undefined,
         }),
       });
@@ -112,25 +156,25 @@ export default function OpportunitiesPage() {
       if (res.ok && data.opportunities) {
         setOpportunities(data.opportunities);
         if (data.isLive) {
-          setStatusMessage("Retrieved live opportunities from TinyFish Web Intelligence.");
+          setStatusMessage(`Retrieved live opportunities tailored for "${profToUse.industry}" in ${profToUse.country}.`);
         } else if (data.warning) {
           setStatusMessage(data.warning);
         }
       } else {
-        // Fallback to benchmarks
+        // Fallback to benchmarks scored against the active profile
         const benchmark = SAMPLE_OPPORTUNITIES.map((opp) => ({
           ...opp,
           isDemoData: true,
-          match: evaluateOpportunityMatch(opp, profile),
-        }));
+          match: evaluateOpportunityMatch(opp, profToUse),
+        })).sort((a, b) => (b.match?.matchScore ?? 0) - (a.match?.matchScore ?? 0));
         setOpportunities(benchmark);
       }
     } catch {
       const benchmark = SAMPLE_OPPORTUNITIES.map((opp) => ({
         ...opp,
         isDemoData: true,
-        match: evaluateOpportunityMatch(opp, profile),
-      }));
+        match: evaluateOpportunityMatch(opp, profToUse),
+      })).sort((a, b) => (b.match?.matchScore ?? 0) - (a.match?.matchScore ?? 0));
       setOpportunities(benchmark);
     } finally {
       setLoading(false);
@@ -272,6 +316,40 @@ export default function OpportunitiesPage() {
       {/* DISCOVER TAB */}
       {activeTab === "discover" && (
         <div>
+          {/* Active Business Profile Context Badge */}
+          <div
+            style={{
+              marginBottom: "1rem",
+              padding: "0.6rem 0.85rem",
+              backgroundColor: "#F8FAFC",
+              border: "1px solid #E2E8F0",
+              borderRadius: "var(--radius-sm)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              fontSize: "0.8rem",
+              color: "#334155",
+              flexWrap: "wrap",
+              gap: "0.5rem",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+              <span style={{ fontWeight: 600, color: "var(--brand-forest)" }}>Matching Context:</span>
+              <span style={{ padding: "0.15rem 0.5rem", backgroundColor: "#EDE9FE", color: "#5B21B6", borderRadius: "var(--radius-xs)", fontWeight: 500 }}>
+                {profile.industry}
+              </span>
+              <span style={{ padding: "0.15rem 0.5rem", backgroundColor: "#E0F2FE", color: "#0369A1", borderRadius: "var(--radius-xs)", fontWeight: 500 }}>
+                {profile.country}{profile.state ? ` (${profile.state})` : ""}
+              </span>
+              <span style={{ padding: "0.15rem 0.5rem", backgroundColor: "#FEF3C7", color: "#92400E", borderRadius: "var(--radius-xs)", fontWeight: 500 }}>
+                Stage: {profile.stage}
+              </span>
+            </div>
+            <Link href="/settings" style={{ fontSize: "0.75rem", color: "var(--brand-forest)", textDecoration: "underline", fontWeight: 500 }}>
+              Edit Profile in Settings &rarr;
+            </Link>
+          </div>
+
           {/* Search & Filter Bar */}
           <div
             style={{
@@ -287,15 +365,32 @@ export default function OpportunitiesPage() {
               justifyContent: "space-between",
             }}
           >
-            <div style={{ position: "relative", flex: "1 1 280px" }}>
-              <Search size={16} style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search programs by grant name, provider, or industry keyword..."
-                style={{ width: "100%", padding: "0.45rem 0.75rem 0.45rem 2.2rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-medium)", fontSize: "0.85rem" }}
-              />
+            <div style={{ position: "relative", flex: "1 1 280px", display: "flex", gap: "0.5rem" }}>
+              <div style={{ position: "relative", flex: 1 }}>
+                <Search size={16} style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && searchQuery.trim()) {
+                      runDiscovery(searchQuery.trim());
+                    }
+                  }}
+                  placeholder="Search programs by grant name, provider, or industry keyword..."
+                  style={{ width: "100%", padding: "0.45rem 0.75rem 0.45rem 2.2rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-medium)", fontSize: "0.85rem" }}
+                />
+              </div>
+              {searchQuery.trim() && (
+                <button
+                  onClick={() => runDiscovery(searchQuery.trim())}
+                  disabled={loading}
+                  className="btn-primary"
+                  style={{ fontSize: "0.78rem", padding: "0.4rem 0.75rem", whiteSpace: "nowrap" }}
+                >
+                  Search
+                </button>
+              )}
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>

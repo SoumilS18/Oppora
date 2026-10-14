@@ -35,7 +35,7 @@ export function AppShell({ children, title, subtitle, action }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
-  const [companyName, setCompanyName] = useState<string>("Oppora Ventures");
+  const [companyName, setCompanyName] = useState<string>("My Business");
   const [currency, setCurrency] = useState<string>("INR");
   const [lowStockCount, setLowStockCount] = useState<number>(0);
   const [pendingDraftsCount, setPendingDraftsCount] = useState<number>(0);
@@ -69,7 +69,10 @@ export function AppShell({ children, title, subtitle, action }: AppShellProps) {
           if (session && isMounted) {
             setUserEmail(session.user.email || null);
             const metaName = session.user.user_metadata?.full_name || session.user.user_metadata?.name;
-            if (metaName) setUserName(metaName);
+            if (metaName) {
+              setUserName(metaName);
+              setCompanyName((prev) => (prev === "My Business" ? `${metaName}'s Business` : prev));
+            }
           }
         });
       } catch {}
