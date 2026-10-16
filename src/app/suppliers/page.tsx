@@ -137,6 +137,11 @@ export default function SuppliersPage() {
       if (tabParam && ["directory", "drafts", "orders", "research"].includes(tabParam)) {
         setActiveTab(tabParam);
       }
+      const qParam = params.get("q");
+      if (qParam) {
+        setResearchQuery(qParam);
+        setActiveTab("research");
+      }
       const draftId = params.get("draftId");
       if (draftId) {
         setActiveTab("drafts");

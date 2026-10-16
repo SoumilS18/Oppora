@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { Product, Supplier, StockMovement, MovementType } from "@/types/operations";
 import {
@@ -597,7 +598,26 @@ export default function InventoryPage() {
 
                       {/* Supplier */}
                       <td style={{ padding: "0.85rem 1rem", fontSize: "0.82rem", color: "var(--text-charcoal)" }}>
-                        {p.supplierName}
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
+                          <span style={{ fontWeight: 500 }}>{p.supplierName}</span>
+                          <Link
+                            href={`/suppliers?tab=research&q=${encodeURIComponent(p.name)}`}
+                            title={`Research manufacturers and supplier pricing for ${p.name} via TinyFish Web Agent`}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "0.25rem",
+                              fontSize: "0.7rem",
+                              color: "var(--brand-forest)",
+                              textDecoration: "none",
+                              fontWeight: 500,
+                              opacity: 0.85,
+                            }}
+                          >
+                            <Search size={10} />
+                            <span>TinyFish Research</span>
+                          </Link>
+                        </div>
                       </td>
 
                       {/* Actions */}
