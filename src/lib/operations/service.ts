@@ -103,11 +103,23 @@ export function resolveStorageMode(): StorageResolution {
   };
 }
 
+export function isDemoOrTestUser(userId: string): boolean {
+  if (!userId || userId === DEMO_USER_ID) return true;
+  if (userId.startsWith("user-") || userId.startsWith("test-")) return true;
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+  return !isUuid;
+}
+
 /**
  * Unified Operations Persistence Service
  * Delegates strictly to Supabase or isolated in-memory store with transactional integrity.
  */
 export class OperationsService {
+  private shouldUseMemory(userId: string): boolean {
+    const { mode } = resolveStorageMode();
+    return mode === "memory" || isDemoOrTestUser(userId);
+  }
+
   // --------------------------------------------------------------------------
   // PRODUCTS
   // --------------------------------------------------------------------------
@@ -117,12 +129,10 @@ export class OperationsService {
     category?: string,
     lowStockOnly?: boolean
   ): Promise<{ products: Product[]; storageMode: "supabase" | "memory"; isDemo: boolean }> {
-    const { mode, isDemo } = resolveStorageMode();
-
-    if (mode === "memory") {
+    if (this.shouldUseMemory(userId)) {
       const store = operationsStore.forUser(userId);
       const products = store.getProducts(search, category, lowStockOnly);
-      return { products, storageMode: "memory", isDemo };
+      return { products, storageMode: "memory", isDemo: isDemoOrTestUser(userId) };
     }
 
     const supabase = createClient();
@@ -181,13 +191,11 @@ export class OperationsService {
       products = products.filter((p) => p.isLowStock);
     }
 
-    return { products, storageMode: "supabase", isDemo };
+    return { products, storageMode: "supabase", isDemo: false };
   }
 
   public async createProduct(userId: string, input: ProductInput): Promise<Product> {
-    const { mode } = resolveStorageMode();
-
-    if (mode === "memory") {
+    if (this.shouldUseMemory(userId)) {
       return operationsStore.forUser(userId).createProduct(input);
     }
 
@@ -229,6 +237,12 @@ export class OperationsService {
       });
     }
 
+    let supplierName = "Unassigned";
+    if (data.preferred_supplier_id) {
+      const { data: sup } = await supabase.from("suppliers").select("name").eq("id", data.preferred_supplier_id).maybeSingle();
+      if (sup?.name) supplierName = sup.name;
+    }
+
     return {
       id: data.id,
       name: data.name,
@@ -242,6 +256,8 @@ export class OperationsService {
       unitCost: Number(data.unit_cost),
       sellingPrice: Number(data.selling_price),
       preferredSupplierId: data.preferred_supplier_id,
+      supplierName,
+      isLowStock: Number(data.current_stock) <= Number(data.reorder_threshold),
       storageLocation: data.storage_location,
       isActive: data.is_active,
       createdAt: data.created_at,
@@ -250,9 +266,7 @@ export class OperationsService {
   }
 
   public async updateProduct(userId: string, id: string, updates: Partial<ProductInput>): Promise<Product> {
-    const { mode } = resolveStorageMode();
-
-    if (mode === "memory") {
+    if (this.shouldUseMemory(userId)) {
       return operationsStore.forUser(userId).updateProduct(id, updates);
     }
 
@@ -304,9 +318,7 @@ export class OperationsService {
   }
 
   public async archiveProduct(userId: string, id: string): Promise<boolean> {
-    const { mode } = resolveStorageMode();
-
-    if (mode === "memory") {
+    if (this.shouldUseMemory(userId)) {
       return operationsStore.forUser(userId).archiveProduct(id);
     }
 
@@ -327,10 +339,12 @@ export class OperationsService {
     userId: string,
     input: StockAdjustmentInput
   ): Promise<{ product: any; movement: any }> {
-    const { mode } = resolveStorageMode();
-
-    if (mode === "memory") {
+    if (this.shouldUseMemory(userId)) {
       return operationsStore.forUser(userId).adjustStock(input);
+    }
+
+    if (!input.reason || !input.reason.trim()) {
+      throw new Error("Stock adjustment audit reason is required.");
     }
 
     const supabase = createClient();
@@ -389,11 +403,9 @@ export class OperationsService {
     userId: string,
     period?: "7d" | "30d" | "90d" | "all"
   ): Promise<{ sales: Sale[]; storageMode: "supabase" | "memory"; isDemo: boolean }> {
-    const { mode, isDemo } = resolveStorageMode();
-
-    if (mode === "memory") {
+    if (this.shouldUseMemory(userId)) {
       const sales = operationsStore.forUser(userId).getSales(period);
-      return { sales, storageMode: "memory", isDemo };
+      return { sales, storageMode: "memory", isDemo: isDemoOrTestUser(userId) };
     }
 
     const supabase = createClient();
@@ -441,13 +453,11 @@ export class OperationsService {
       updatedAt: s.updated_at,
     }));
 
-    return { sales, storageMode: "supabase", isDemo };
+    return { sales, storageMode: "supabase", isDemo: false };
   }
 
   public async createSale(userId: string, input: CreateSaleInput): Promise<Sale> {
-    const { mode } = resolveStorageMode();
-
-    if (mode === "memory") {
+    if (this.shouldUseMemory(userId)) {
       return operationsStore.forUser(userId).createSale(input);
     }
 
@@ -509,9 +519,7 @@ export class OperationsService {
   }
 
   public async cancelSale(userId: string, saleId: string, reason: string): Promise<Sale> {
-    const { mode } = resolveStorageMode();
-
-    if (mode === "memory") {
+    if (this.shouldUseMemory(userId)) {
       return operationsStore.forUser(userId).cancelSale(saleId, reason);
     }
 
@@ -525,6 +533,42 @@ export class OperationsService {
       throw new DatabaseError(`Failed to cancel sale: ${error.message}`, error);
     }
 
+    const { data: cancelledSale } = await supabase
+      .from("sales")
+      .select("*, items:sale_items(*)")
+      .eq("id", saleId)
+      .eq("user_id", userId)
+      .single();
+
+    if (cancelledSale) {
+      return {
+        id: cancelledSale.id,
+        saleNumber: cancelledSale.sale_number,
+        saleDate: cancelledSale.sale_date,
+        totalAmount: Number(cancelledSale.total_amount),
+        totalCost: Number(cancelledSale.total_cost),
+        discountAmount: Number(cancelledSale.discount_amount),
+        paymentMethod: cancelledSale.payment_method,
+        paymentStatus: cancelledSale.payment_status,
+        customerNote: cancelledSale.customer_note || "",
+        status: cancelledSale.status,
+        idempotencyKey: cancelledSale.idempotency_key,
+        items: (cancelledSale.items || []).map((i: any) => ({
+          id: i.id,
+          saleId: i.sale_id,
+          productId: i.product_id,
+          productName: i.product_name,
+          productSku: i.product_sku,
+          quantity: Number(i.quantity),
+          unitPrice: Number(i.unit_price),
+          unitCost: Number(i.unit_cost),
+          totalPrice: Number(i.total_price),
+        })),
+        createdAt: cancelledSale.created_at,
+        updatedAt: cancelledSale.updated_at,
+      };
+    }
+
     return data;
   }
 
@@ -535,11 +579,9 @@ export class OperationsService {
     userId: string,
     search?: string
   ): Promise<{ suppliers: Supplier[]; storageMode: "supabase" | "memory"; isDemo: boolean }> {
-    const { mode, isDemo } = resolveStorageMode();
-
-    if (mode === "memory") {
+    if (this.shouldUseMemory(userId)) {
       const suppliers = operationsStore.forUser(userId).getSuppliers(search);
-      return { suppliers, storageMode: "memory", isDemo };
+      return { suppliers, storageMode: "memory", isDemo: isDemoOrTestUser(userId) };
     }
 
     const supabase = createClient();
@@ -575,13 +617,11 @@ export class OperationsService {
       updatedAt: row.updated_at,
     }));
 
-    return { suppliers, storageMode: "supabase", isDemo };
+    return { suppliers, storageMode: "supabase", isDemo: false };
   }
 
   public async createSupplier(userId: string, input: SupplierInput): Promise<Supplier> {
-    const { mode } = resolveStorageMode();
-
-    if (mode === "memory") {
+    if (this.shouldUseMemory(userId)) {
       return operationsStore.forUser(userId).createSupplier(input);
     }
 
@@ -632,9 +672,7 @@ export class OperationsService {
     id: string,
     updates: Partial<SupplierInput>
   ): Promise<Supplier> {
-    const { mode } = resolveStorageMode();
-
-    if (mode === "memory") {
+    if (this.shouldUseMemory(userId)) {
       return operationsStore.forUser(userId).updateSupplier(id, updates);
     }
 
@@ -680,9 +718,7 @@ export class OperationsService {
   }
 
   public async archiveSupplier(userId: string, id: string): Promise<boolean> {
-    const { mode } = resolveStorageMode();
-
-    if (mode === "memory") {
+    if (this.shouldUseMemory(userId)) {
       return operationsStore.forUser(userId).archiveSupplier(id);
     }
 
@@ -706,11 +742,9 @@ export class OperationsService {
     userId: string,
     status?: "draft" | "approved" | "sent" | "failed"
   ): Promise<{ drafts: SupplierEmailDraft[]; storageMode: "supabase" | "memory"; isDemo: boolean }> {
-    const { mode, isDemo } = resolveStorageMode();
-
-    if (mode === "memory") {
+    if (this.shouldUseMemory(userId)) {
       const drafts = operationsStore.forUser(userId).getSupplierEmailDrafts(status);
-      return { drafts, storageMode: "memory", isDemo };
+      return { drafts, storageMode: "memory", isDemo: isDemoOrTestUser(userId) };
     }
 
     const supabase = createClient();
@@ -748,7 +782,7 @@ export class OperationsService {
       updatedAt: row.updated_at,
     }));
 
-    return { drafts, storageMode: "supabase", isDemo };
+    return { drafts, storageMode: "supabase", isDemo: false };
   }
 
   public async updateSupplierEmailDraft(
@@ -756,9 +790,7 @@ export class OperationsService {
     id: string,
     updates: Partial<SupplierEmailDraft>
   ): Promise<SupplierEmailDraft> {
-    const { mode } = resolveStorageMode();
-
-    if (mode === "memory") {
+    if (this.shouldUseMemory(userId)) {
       return operationsStore.forUser(userId).updateSupplierEmailDraft(id, updates);
     }
 
@@ -805,9 +837,7 @@ export class OperationsService {
     userId: string,
     draftId: string
   ): Promise<{ draft: SupplierEmailDraft; success: boolean; message: string }> {
-    const { mode } = resolveStorageMode();
-
-    if (mode === "memory") {
+    if (this.shouldUseMemory(userId)) {
       return operationsStore.forUser(userId).approveAndSendSupplierEmail(draftId);
     }
 
@@ -930,9 +960,7 @@ export class OperationsService {
   public async checkStockNow(
     userId: string
   ): Promise<{ checkedProducts: number; lowStockCount: number; newDraftsCreated: number }> {
-    const { mode } = resolveStorageMode();
-
-    if (mode === "memory") {
+    if (this.shouldUseMemory(userId)) {
       return operationsStore.forUser(userId).checkStockNow();
     }
 
@@ -1007,11 +1035,9 @@ export class OperationsService {
     userId: string,
     period: "7d" | "30d" | "90d" | "all" = "30d"
   ): Promise<{ metrics: OverviewMetrics; storageMode: "supabase" | "memory"; isDemo: boolean }> {
-    const { mode, isDemo } = resolveStorageMode();
-
-    if (mode === "memory") {
+    if (this.shouldUseMemory(userId)) {
       const metrics = operationsStore.forUser(userId).getOverviewMetrics(period);
-      return { metrics, storageMode: "memory", isDemo };
+      return { metrics, storageMode: "memory", isDemo: isDemoOrTestUser(userId) };
     }
 
     const { products } = await this.getProducts(userId);
@@ -1141,7 +1167,7 @@ export class OperationsService {
       reorderRecommendations,
     };
 
-    return { metrics, storageMode: "supabase", isDemo };
+    return { metrics, storageMode: "supabase", isDemo: false };
   }
 
   public async getActionCenter(
@@ -1174,11 +1200,9 @@ export class OperationsService {
   public async getSettings(
     userId: string
   ): Promise<{ settings: BusinessSettings; storageMode: "supabase" | "memory"; isDemo: boolean }> {
-    const { mode, isDemo } = resolveStorageMode();
-
-    if (mode === "memory") {
+    if (this.shouldUseMemory(userId)) {
       const settings = operationsStore.forUser(userId).getSettings();
-      return { settings, storageMode: "memory", isDemo };
+      return { settings, storageMode: "memory", isDemo: isDemoOrTestUser(userId) };
     }
 
     const supabase = createClient();
@@ -1202,16 +1226,14 @@ export class OperationsService {
       replyToEmail: profile?.reply_to_email || "",
     };
 
-    return { settings, storageMode: "supabase", isDemo };
+    return { settings, storageMode: "supabase", isDemo: false };
   }
 
   public async updateSettings(
     userId: string,
     updates: Partial<BusinessSettings>
   ): Promise<BusinessSettings> {
-    const { mode } = resolveStorageMode();
-
-    if (mode === "memory") {
+    if (this.shouldUseMemory(userId)) {
       return operationsStore.forUser(userId).updateSettings(updates);
     }
 
@@ -1257,8 +1279,7 @@ export class OperationsService {
   // RESTOCK ORDERS
   // --------------------------------------------------------------------------
   public async getRestockOrders(userId: string): Promise<RestockOrder[]> {
-    const { mode } = resolveStorageMode();
-    if (mode === "memory") {
+    if (this.shouldUseMemory(userId)) {
       return operationsStore.forUser(userId).getRestockOrders();
     }
     const supabase = createClient();
@@ -1297,30 +1318,92 @@ export class OperationsService {
   }
 
   public async createRestockOrder(userId: string, input: any): Promise<RestockOrder> {
-    const { mode } = resolveStorageMode();
-    if (mode === "memory") {
+    if (this.shouldUseMemory(userId)) {
       return operationsStore.forUser(userId).createRestockOrder(input);
     }
     const supabase = createClient();
-    // Implementation via Supabase tables
     const orderNumber = `PO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const { data: supplier } = await supabase.from("suppliers").select("name").eq("id", input.supplierId).single();
+    const { data: supplier, error: supErr } = await supabase
+      .from("suppliers")
+      .select("id, name, lead_time_days")
+      .eq("id", input.supplierId)
+      .eq("user_id", userId)
+      .single();
+
+    if (supErr || !supplier) {
+      throw new DatabaseError(`Supplier "${input.supplierId}" not found or unauthorized.`, supErr);
+    }
+
+    const expectedDeliveryDate = supplier.lead_time_days
+      ? new Date(Date.now() + supplier.lead_time_days * 24 * 60 * 60 * 1000).toISOString()
+      : null;
+
+    const productIds = (input.items || []).map((i: any) => i.productId);
+    const { data: prodsData } = await supabase
+      .from("products")
+      .select("id, name, sku, unit_cost")
+      .in("id", productIds)
+      .eq("user_id", userId);
+
+    const prodMap = new Map<string, any>();
+    (prodsData || []).forEach((p: any) => prodMap.set(p.id, p));
+
+    let totalEstimated = 0;
+    const itemsToInsert: any[] = [];
+
+    for (const item of input.items || []) {
+      const prod = prodMap.get(item.productId);
+      if (!prod) {
+        throw new DatabaseError(`Product "${item.productId}" not found or unauthorized.`);
+      }
+      const qty = round2(item.quantity);
+      const unitCost = round2(item.unitCost ?? prod.unit_cost);
+      const totalCost = round2(qty * unitCost);
+      totalEstimated += totalCost;
+
+      itemsToInsert.push({
+        product_id: prod.id,
+        product_name: prod.name,
+        product_sku: prod.sku,
+        quantity_requested: qty,
+        quantity_received: 0,
+        unit_cost: unitCost,
+        total_cost: totalCost,
+      });
+    }
 
     const { data: order, error } = await supabase
       .from("restock_orders")
       .insert({
         user_id: userId,
         order_number: orderNumber,
-        supplier_id: input.supplierId,
-        supplier_name: supplier?.name || "Supplier",
+        supplier_id: supplier.id,
+        supplier_name: supplier.name,
         status: "draft",
+        total_estimated_cost: round2(totalEstimated),
         notes: input.notes || "",
+        expected_delivery_date: expectedDeliveryDate,
       })
       .select()
       .single();
 
     if (error) {
       throw new DatabaseError(`Failed to create restock order: ${error.message}`, error);
+    }
+
+    const orderItemsRows = itemsToInsert.map((item) => ({
+      ...item,
+      user_id: userId,
+      order_id: order.id,
+    }));
+
+    const { data: insertedItems, error: itemsErr } = await supabase
+      .from("restock_order_items")
+      .insert(orderItemsRows)
+      .select();
+
+    if (itemsErr) {
+      throw new DatabaseError(`Failed to record restock order line items: ${itemsErr.message}`, itemsErr);
     }
 
     return {
@@ -1331,7 +1414,17 @@ export class OperationsService {
       status: order.status,
       totalEstimatedCost: Number(order.total_estimated_cost),
       notes: order.notes,
-      items: [],
+      expectedDeliveryDate: order.expected_delivery_date,
+      items: (insertedItems || []).map((i: any) => ({
+        id: i.id,
+        productId: i.product_id,
+        productName: i.product_name,
+        productSku: i.product_sku,
+        quantityRequested: Number(i.quantity_requested),
+        quantityReceived: Number(i.quantity_received),
+        unitCost: Number(i.unit_cost),
+        totalCost: Number(i.total_cost),
+      })),
       createdAt: order.created_at,
       updatedAt: order.updated_at,
     };
@@ -1342,8 +1435,7 @@ export class OperationsService {
     orderId: string,
     receivedQuantities: Record<string, number>
   ): Promise<{ order: any; movements: any[] }> {
-    const { mode } = resolveStorageMode();
-    if (mode === "memory") {
+    if (this.shouldUseMemory(userId)) {
       return operationsStore.forUser(userId).receiveRestockStock(orderId, receivedQuantities);
     }
     const supabase = createClient();
@@ -1355,7 +1447,58 @@ export class OperationsService {
     if (error) {
       throw new DatabaseError(`Failed to receive restock stock: ${error.message}`, error);
     }
-    return { order: data, movements: [] };
+
+    const { data: updatedOrder } = await supabase
+      .from("restock_orders")
+      .select("*, items:restock_order_items(*)")
+      .eq("id", orderId)
+      .eq("user_id", userId)
+      .single();
+
+    const { data: movementsData } = await supabase
+      .from("stock_movements")
+      .select("*, products:product_id(name, sku)")
+      .eq("user_id", userId)
+      .eq("reference_id", orderId)
+      .order("created_at", { ascending: false });
+
+    const movements: StockMovement[] = (movementsData || []).map((m: any) => ({
+      id: m.id,
+      productId: m.product_id,
+      productName: m.products?.name || "Product",
+      productSku: m.products?.sku || "",
+      movementType: m.movement_type,
+      quantityChange: Number(m.quantity_change),
+      quantityAfter: Number(m.quantity_after),
+      reason: m.reason,
+      referenceId: m.reference_id || "",
+      createdAt: m.created_at,
+    }));
+
+    const formattedOrder = updatedOrder ? {
+      id: updatedOrder.id,
+      orderNumber: updatedOrder.order_number,
+      supplierId: updatedOrder.supplier_id,
+      supplierName: updatedOrder.supplier_name,
+      status: updatedOrder.status,
+      totalEstimatedCost: Number(updatedOrder.total_estimated_cost),
+      notes: updatedOrder.notes || "",
+      expectedDeliveryDate: updatedOrder.expected_delivery_date,
+      items: (updatedOrder.items || []).map((i: any) => ({
+        id: i.id,
+        productId: i.product_id,
+        productName: i.product_name,
+        productSku: i.product_sku,
+        quantityRequested: Number(i.quantity_requested),
+        quantityReceived: Number(i.quantity_received),
+        unitCost: Number(i.unit_cost),
+        totalCost: Number(i.total_cost),
+      })),
+      createdAt: updatedOrder.created_at,
+      updatedAt: updatedOrder.updated_at,
+    } : data;
+
+    return { order: formattedOrder, movements };
   }
 }
 

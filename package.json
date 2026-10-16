@@ -6,9 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node test_action_centre.js && node test_operations.js && node test_pipeline.js",
+    "test": "node test_action_centre.js && node test_operations.js && node test_pipeline.js && node test_persistence_audit.js && node test_master_remediation.js",
     "test:actions": "node test_action_centre.js",
     "test:operations": "node test_operations.js",
+    "test:audit": "node test_persistence_audit.js",
+    "test:master": "node test_master_remediation.js",
     "lint": "next lint"
   },
   "dependencies": {

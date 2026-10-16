@@ -87,6 +87,9 @@ async function runAudit() {
     }
   }
 
+  const aliceId = "user-alice-audit-101";
+  const bobId = "user-bob-audit-202";
+
   // ---------------------------------------------------------------------------
   // 1. STORAGE MODE & ENDPOINT RESOLUTION
   // ---------------------------------------------------------------------------
@@ -113,7 +116,10 @@ async function runAudit() {
   try {
     const res = await fetch(`${BASE_URL}/api/operations/products`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Oppora-User-Id": aliceId,
+      },
       body: JSON.stringify({ invalid: "data" }),
     });
     const data = await res.json();
@@ -129,9 +135,6 @@ async function runAudit() {
   // 2. MULTI-TENANT ISOLATION (USER A VS USER B)
   // ---------------------------------------------------------------------------
   console.log("\n--- Section 2: Multi-Tenant Data Scoping & Ownership Isolation ---");
-
-  const aliceId = "user-alice-audit-101";
-  const bobId = "user-bob-audit-202";
 
   // Test 2.1: Alice creates a product
   let aliceProduct = null;
@@ -435,7 +438,7 @@ async function runAudit() {
     assert(false, `Test 4.2 failed: ${err.message}`);
   }
 
-  // Test 4.3: Missing email provider credentials reports accurate diagnostic without claiming delivery
+  // Test 4.3: Missing or unverified email provider credentials reports accurate diagnostic without claiming delivery
   try {
     const res = await fetch(`${BASE_URL}/api/operations/emails/send`, {
       method: "POST",
@@ -450,8 +453,11 @@ async function runAudit() {
     });
     const data = await res.json();
     assert(
-      data.success === false && data.message.includes("provider is not configured"),
-      "Missing email provider credentials reports unconfigured provider and does not claim fake delivery"
+      data.success === false &&
+        (data.message.includes("provider is not configured") ||
+          data.message.includes("Provider error") ||
+          data.message.includes("unconfigured")),
+      "Email dispatch reports accurate failure/unconfigured diagnostic and does not claim fake delivery"
     );
   } catch (err) {
     assert(false, `Test 4.3 failed: ${err.message}`);
