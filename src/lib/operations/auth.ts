@@ -49,18 +49,8 @@ export async function getAuthenticatedOperationsUser(req?: NextRequest): Promise
     }
   }
 
-  // 2. In production, unauthenticated requests are strictly rejected
-  if (isProd) {
-    return {
-      userId: "",
-      isDemo: false,
-      error: "Authentication required. Active server session not found.",
-      status: 401,
-    };
-  }
-
-  // 3. In non-production (development / test / demo):
-  // Allow read-only exploration of Demo Mode for GET requests
+  // 2. Allow read-only exploration of Demo Mode for GET requests
+  // Strictly isolated to DEMO_USER_ID (uses isolated in-memory demo data, NEVER real Supabase records)
   if (req && req.method === "GET") {
     return {
       userId: DEMO_USER_ID,
@@ -68,20 +58,12 @@ export async function getAuthenticatedOperationsUser(req?: NextRequest): Promise
     };
   }
 
-  // In development, if Supabase mode is active, reject unauthenticated mutations
-  if (mode === "supabase") {
-    return {
-      userId: "",
-      isDemo: false,
-      error: "Authentication required. Active server session not found.",
-      status: 401,
-    };
-  }
-
-  // Default demo user for development/demo exploration in memory mode
+  // 3. Reject unauthenticated mutations consistently across all modes
   return {
-    userId: DEMO_USER_ID,
-    isDemo: true,
+    userId: "",
+    isDemo: false,
+    error: "Authentication required. Active server session not found. Please sign in to perform this action.",
+    status: 401,
   };
 }
 
